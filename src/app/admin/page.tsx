@@ -51,7 +51,7 @@ export default function AdminDashboard() {
 
   const statCards = [
     { title: 'إجمالي الطلبات', value: stats.totalOrders, icon: ShoppingBag, color: 'var(--gold)' },
-    { title: 'مبيعات اليوم', value: `${stats.totalRevenue} درهم`, icon: DollarSign, color: '#10b981' },
+    { title: 'مبيعات اليوم', value: `${stats.totalRevenue} ريال`, icon: DollarSign, color: '#10b981' },
     { title: 'طلبات قيد الانتظار', value: stats.pendingOrders, icon: TrendingUp, color: '#ef4444' },
     { title: 'الأطباق النشطة', value: stats.activeItems, icon: Users, color: '#3b82f6' },
   ];

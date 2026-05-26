@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Cairo, Tajawal, Noto_Sans_Arabic } from 'next/font/google';
+import { Cairo, Tajawal, Montserrat } from 'next/font/google';
 import './globals.css';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
@@ -8,6 +8,7 @@ import LoadingScreen from '@/components/layout/LoadingScreen';
 /* ── Google Fonts ── */
 const cairo = Cairo({
   subsets: ['arabic'],
+  weight: ['300', '400', '500', '600', '700', '800', '900'],
   variable: '--font-cairo',
   display: 'swap',
 });
@@ -17,10 +18,10 @@ const tajawal = Tajawal({
   variable: '--font-tajawal',
   display: 'swap',
 });
-const notoSansArabic = Noto_Sans_Arabic({
-  subsets: ['arabic'],
+const montserrat = Montserrat({
+  subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
-  variable: '--font-noto-sans-arabic',
+  variable: '--font-montserrat',
   display: 'swap',
 });
 
@@ -72,7 +73,7 @@ const themeScript = `
 `;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const fontVars = [cairo.variable, tajawal.variable, notoSansArabic.variable].join(' ');
+  const fontVars = [cairo.variable, tajawal.variable, montserrat.variable].join(' ');
 
   return (
     <html lang="ar" dir="rtl" className={fontVars} suppressHydrationWarning>

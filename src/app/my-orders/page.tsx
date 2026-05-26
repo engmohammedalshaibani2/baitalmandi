@@ -211,10 +211,10 @@ export default function MyOrdersPage() {
     <div className="container" style={{ paddingTop: '40px', paddingBottom: '100px' }}>
       <h1 className="title-gold" style={{ fontSize: '2.5rem', marginBottom: '35px', textAlign: 'center' }}>سلة الطلبات</h1>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 380px', gap: '30px', alignItems: 'start' }}>
+      <div className="flex flex-col lg:grid lg:grid-cols-[1fr_380px] gap-8 items-start w-full">
 
         {/* Items List */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div className="w-full flex flex-col gap-4">
           {items.map(item => (
             <div key={item.id} className="glass-card" style={{ display: 'flex', padding: '16px', alignItems: 'center', gap: '18px', flexWrap: 'wrap' }}>
               {item.image ? (
@@ -271,7 +271,7 @@ export default function MyOrdersPage() {
         </div>
 
         {/* Order Summary */}
-        <div className="glass-panel" style={{ padding: '28px', position: 'sticky', top: '100px' }}>
+        <div className="glass-panel w-full p-6 md:p-8 sticky top-24">
           <h3 style={{ fontSize: '1.4rem', marginBottom: '24px', borderBottom: '1px solid var(--border)', paddingBottom: '14px' }}>ملخص الطلب</h3>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
@@ -305,11 +305,8 @@ export default function MyOrdersPage() {
 
       {/* ─── ORDER METHOD MODAL ─── */}
       {showOrderModal && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)',
-          zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
-        }}>
-          <div className="glass-panel" style={{ width: '100%', maxWidth: '520px', padding: '36px', background: 'var(--bg-panel)' }}>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[2000] flex items-center justify-center p-4">
+          <div className="glass-panel w-full max-w-[520px] max-h-[90vh] overflow-y-auto p-6 md:p-9 bg-[var(--bg-panel)]">
 
             {!orderMethod ? (
               <>

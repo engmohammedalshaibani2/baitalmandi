@@ -19,7 +19,7 @@ export default function LoadingScreen() {
     <div id="loading-screen" className={hidden ? 'hidden' : ''} aria-hidden={hidden}>
       <div className="loading-logo">
         <Image
-          src="/logo.svg"
+          src="/logo.jpg"
           alt="بيت المندي"
           width={100}
           height={100}

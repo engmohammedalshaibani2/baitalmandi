@@ -77,14 +77,7 @@ export default function Navbar() {
         <div className="container">
           {/* ── Brand ── */}
           <Link href="/" className="nav-brand" aria-label="بيت المندي - الرئيسية">
-            <Image
-              src="/logo.jpg"
-              alt="شعار بيت المندي"
-              width={46}
-              height={46}
-              priority
-              style={{ borderRadius: '50%', background: 'var(--maroon)', padding: '4px' }}
-            />
+            <Image src="/logo.jpg" alt="شعار بيت المندي" width={42} height={42} className="rounded-full shadow-md" style={{ border: '1px solid var(--gold)' }} />
             <span className="nav-brand-text">بيت المندي</span>
           </Link>
 

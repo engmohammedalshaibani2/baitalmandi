@@ -8,12 +8,22 @@ import { Phone, MapPin, Clock, Instagram, Facebook } from 'lucide-react';
 
 export default function Footer() {
   return (
-    <footer style={{
-      background: 'var(--bg-panel)',
-      borderTop: '1px solid var(--border)',
-      backdropFilter: 'blur(20px)',
+    <footer className="plum-heritage-gradient" style={{
       marginTop: '80px',
+      position: 'relative'
     }}>
+      {/* Faded Circular Watermark */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        backgroundImage: 'url(/logo.jpg)',
+        backgroundRepeat: 'no-repeat',
+        backgroundPosition: 'center',
+        backgroundSize: '400px',
+        opacity: 0.05,
+        pointerEvents: 'none',
+        WebkitMaskImage: 'radial-gradient(circle 200px at center, black 0%, black 50%, transparent 80%)',
+        maskImage: 'radial-gradient(circle 200px at center, black 0%, black 50%, transparent 80%)'
+      }} />
       {/* Gold divider */}
       <div style={{
         height: '3px',
@@ -26,7 +36,7 @@ export default function Footer() {
           <div>
             <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
               <Image
-                src="/logo.svg"
+                src="/logo.jpg"
                 alt="شعار بيت المندي"
                 width={52}
                 height={52}
@@ -175,3 +185,4 @@ export default function Footer() {
     </footer>
   );
 }
+

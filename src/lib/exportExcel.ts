@@ -23,7 +23,7 @@ function addHeader(ws: ExcelJS.Worksheet, title: string, cols: number, opts: { s
   r1c1.value     = 'مطعم بيت المندي';
   r1c1.font      = { bold: true, size: 18, color: { argb: WHITE } };
   r1c1.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: PLUM } };
-  r1c1.alignment = { horizontal: 'right', vertical: 'middle', readingOrder: 'rightToLeft' };
+  r1c1.alignment = { horizontal: 'right', vertical: 'middle', readingOrder: 'rtl' };
   ws.getRow(1).height = 36;
 
   // Row 2 – report title
@@ -32,7 +32,7 @@ function addHeader(ws: ExcelJS.Worksheet, title: string, cols: number, opts: { s
   r2c1.value     = title;
   r2c1.font      = { bold: true, size: 13, color: { argb: BROWN_TXT } };
   r2c1.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: GOLD } };
-  r2c1.alignment = { horizontal: 'right', vertical: 'middle', readingOrder: 'rightToLeft' };
+  r2c1.alignment = { horizontal: 'right', vertical: 'middle', readingOrder: 'rtl' };
   ws.getRow(2).height = 26;
 
   // Row 3 – metadata
@@ -43,7 +43,7 @@ function addHeader(ws: ExcelJS.Worksheet, title: string, cols: number, opts: { s
     (opts.search ? `  |  بحث: ${opts.search}` : '');
   r3c1.font      = { size: 10, color: { argb: WHITE }, italic: true };
   r3c1.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: DARK_GOLD } };
-  r3c1.alignment = { horizontal: 'right', vertical: 'middle', readingOrder: 'rightToLeft', wrapText: true };
+  r3c1.alignment = { horizontal: 'right', vertical: 'middle', readingOrder: 'rtl', wrapText: true };
   ws.getRow(3).height = 22;
 
   // Row 4 – spacer
@@ -57,7 +57,7 @@ function styleColHdrRow(ws: ExcelJS.Worksheet, rowNum: number, colCount: number)
     const cell = row.getCell(c);
     cell.font      = { bold: true, size: 11, color: { argb: WHITE } };
     cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: PLUM } };
-    cell.alignment = { horizontal: 'right', vertical: 'middle', readingOrder: 'rightToLeft' };
+    cell.alignment = { horizontal: 'right', vertical: 'middle', readingOrder: 'rtl' };
     cell.border    = { bottom: { style: 'medium', color: { argb: GOLD } } };
   }
   row.height = 22;
@@ -71,7 +71,7 @@ function stripeRows(ws: ExcelJS.Worksheet, fromRow: number, toRow: number, colCo
     for (let c = 1; c <= colCount; c++) {
       const cell = row.getCell(c);
       cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } };
-      cell.alignment = { horizontal: 'right', vertical: 'middle', readingOrder: 'rightToLeft' };
+      cell.alignment = { horizontal: 'right', vertical: 'middle', readingOrder: 'rtl' };
       cell.border    = { bottom: { style: 'thin', color: { argb: 'FFE5DFD5' } } };
       cell.font      = { size: 10 };
     }
@@ -87,7 +87,7 @@ function addDivider(ws: ExcelJS.Worksheet, label: string, colCount: number) {
   cell.value     = label;
   cell.font      = { bold: true, size: 12, color: { argb: WHITE } };
   cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: DARK_GOLD } };
-  cell.alignment = { horizontal: 'right', vertical: 'middle', readingOrder: 'rightToLeft' };
+  cell.alignment = { horizontal: 'right', vertical: 'middle', readingOrder: 'rtl' };
   ws.getRow(nextRow).height = 22;
   return nextRow;
 }

@@ -51,7 +51,7 @@ export default function Footer() {
                 بيت المندي
               </span>
             </Link>
-            <p style={{ color: 'var(--text-secondary)', lineHeight: 1.8, maxWidth: '260px' }}>
+            <p style={{ color: 'rgba(244, 239, 230, 0.85)', lineHeight: 1.8, maxWidth: '260px', fontSize: '1rem' }}>
               أصالة الطعم اليمني العريق — نقدم لكم أشهى المأكولات المحضّرة بحب وتقاليد أصيلة.
             </p>
             {/* Social */}
@@ -62,20 +62,20 @@ export default function Footer() {
                 aria-label="إنستغرام"
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  width: '40px', height: '40px', borderRadius: '50%',
-                  background: 'var(--glass-bg)', border: '1px solid var(--border)',
-                  color: 'var(--text-secondary)', transition: 'all var(--transition)',
+                  width: '44px', height: '44px', borderRadius: '50%',
+                  background: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(197, 155, 95, 0.25)',
+                  color: 'rgba(244, 239, 230, 0.85)', transition: 'all var(--transition)',
                 }}
                 onMouseEnter={e => {
                   (e.currentTarget as HTMLElement).style.borderColor = 'var(--gold)';
                   (e.currentTarget as HTMLElement).style.color = 'var(--gold)';
                 }}
                 onMouseLeave={e => {
-                  (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)';
-                  (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)';
+                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(197, 155, 95, 0.25)';
+                  (e.currentTarget as HTMLElement).style.color = 'rgba(244, 239, 230, 0.85)';
                 }}
               >
-                <Instagram size={18} />
+                <Instagram size={20} />
               </a>
               <a
                 href={siteConfig.social.facebook}
@@ -83,20 +83,20 @@ export default function Footer() {
                 aria-label="فيسبوك"
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  width: '40px', height: '40px', borderRadius: '50%',
-                  background: 'var(--glass-bg)', border: '1px solid var(--border)',
-                  color: 'var(--text-secondary)', transition: 'all var(--transition)',
+                  width: '44px', height: '44px', borderRadius: '50%',
+                  background: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(197, 155, 95, 0.25)',
+                  color: 'rgba(244, 239, 230, 0.85)', transition: 'all var(--transition)',
                 }}
                 onMouseEnter={e => {
                   (e.currentTarget as HTMLElement).style.borderColor = 'var(--gold)';
                   (e.currentTarget as HTMLElement).style.color = 'var(--gold)';
                 }}
                 onMouseLeave={e => {
-                  (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)';
-                  (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)';
+                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(197, 155, 95, 0.25)';
+                  (e.currentTarget as HTMLElement).style.color = 'rgba(244, 239, 230, 0.85)';
                 }}
               >
-                <Facebook size={18} />
+                <Facebook size={20} />
               </a>
             </div>
           </div>
@@ -118,13 +118,13 @@ export default function Footer() {
                 href={href}
                 style={{
                   display: 'block',
-                  color: 'var(--text-secondary)',
-                  padding: '6px 0',
-                  fontSize: '0.95rem',
+                  color: 'rgba(244, 239, 230, 0.85)',
+                  padding: '8px 0',
+                  fontSize: '1.05rem',
                   transition: 'color var(--transition)',
                 }}
                 onMouseEnter={e => (e.currentTarget.style.color = 'var(--gold)')}
-                onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'rgba(244, 239, 230, 0.85)')}
               >
                 {label}
               </Link>
@@ -136,28 +136,28 @@ export default function Footer() {
             <h3 style={{ color: 'var(--gold)', marginBottom: '16px', fontWeight: 800, fontSize: '1.1rem' }}>
               تواصل معنا
             </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <a
                 href={siteConfig.contact.booking.url}
-                style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-secondary)', fontSize: '0.95rem' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'rgba(244, 239, 230, 0.85)', fontSize: '1.05rem' }}
               >
-                <Phone size={16} style={{ color: 'var(--gold)', flexShrink: 0 }} />
+                <Phone size={18} style={{ color: 'var(--gold)', flexShrink: 0 }} />
                 للحجز: {siteConfig.contact.booking.display}
               </a>
               <a
                 href={siteConfig.contact.delivery.whatsapp}
                 target="_blank" rel="noreferrer"
-                style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-secondary)', fontSize: '0.95rem' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'rgba(244, 239, 230, 0.85)', fontSize: '1.05rem' }}
               >
-                <Phone size={16} style={{ color: 'var(--gold)', flexShrink: 0 }} />
+                <Phone size={18} style={{ color: 'var(--gold)', flexShrink: 0 }} />
                 توصيل: {siteConfig.contact.delivery.display}
               </a>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
-                <MapPin size={16} style={{ color: 'var(--gold)', flexShrink: 0, marginTop: '3px' }} />
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', color: 'rgba(244, 239, 230, 0.85)', fontSize: '1.05rem' }}>
+                <MapPin size={18} style={{ color: 'var(--gold)', flexShrink: 0, marginTop: '4px' }} />
                 <span>{siteConfig.address}</span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
-                <Clock size={16} style={{ color: 'var(--gold)', flexShrink: 0 }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'rgba(244, 239, 230, 0.85)', fontSize: '1.05rem' }}>
+                <Clock size={18} style={{ color: 'var(--gold)', flexShrink: 0 }} />
                 يومياً 11:00 ص — 12:00 م
               </div>
             </div>
@@ -166,7 +166,7 @@ export default function Footer() {
 
         {/* Bottom bar */}
         <div style={{
-          borderTop: '1px solid var(--border)',
+          borderTop: '1px solid rgba(197, 155, 95, 0.2)',
           paddingTop: '24px',
           display: 'flex',
           flexWrap: 'wrap',
@@ -174,10 +174,10 @@ export default function Footer() {
           alignItems: 'center',
           gap: '12px',
         }}>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+          <p style={{ color: 'rgba(244, 239, 230, 0.65)', fontSize: '0.95rem' }}>
             © {new Date().getFullYear()} مطعم بيت المندي — جميع الحقوق محفوظة
           </p>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+          <p style={{ color: 'rgba(244, 239, 230, 0.65)', fontSize: '0.95rem' }}>
             صنعاء، اليمن 🇾🇪
           </p>
         </div>

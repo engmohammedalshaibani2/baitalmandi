@@ -97,8 +97,7 @@ export default function AdminOffersPage() {
   return (
     <div>
       <h1 className="title-gold" style={{ fontSize: '2rem', marginBottom: '30px' }}>إدارة العروض</h1>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '30px', alignItems: 'start' }}>
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-8 items-start">
 
         {/* Offers List */}
         <div className="glass-panel" style={{ padding: '24px' }}>

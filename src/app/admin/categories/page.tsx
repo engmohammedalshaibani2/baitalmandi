@@ -95,8 +95,7 @@ export default function CategoriesPage() {
   return (
     <div>
       <h1 className="title-gold" style={{ fontSize: '2rem', marginBottom: '30px' }}>إدارة التصنيفات</h1>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '30px', alignItems: 'start' }}>
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_350px] gap-8 items-start">
 
         {/* List */}
         <div className="glass-panel" style={{ padding: '24px' }}>

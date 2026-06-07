@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { LayoutDashboard, ShoppingBag, UtensilsCrossed, Tags, Settings, LogOut, Menu, X, Users, Image as ImageIcon } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, UtensilsCrossed, Tags, Settings, LogOut, Menu, X, Users, Image as ImageIcon, PieChart } from 'lucide-react';
 
 const ADMIN_LINKS = [
   { href: '/admin', label: 'الرئيسية', icon: LayoutDashboard },
@@ -14,6 +14,7 @@ const ADMIN_LINKS = [
   { href: '/admin/offers', label: 'العروض', icon: Tags },
   { href: '/admin/gallery', label: 'معرض الصور', icon: ImageIcon },
   { href: '/admin/reviews', label: 'التقييمات', icon: Users },
+  { href: '/admin/reports', label: 'التقارير', icon: PieChart },
   { href: '/admin/settings', label: 'الإعدادات', icon: Settings },
 ];
 
@@ -21,20 +22,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const pathname = usePathname();
   const [loading, setLoading] = useState(true);
-  const [isSidebarOpen, setSidebarOpen] = useState(true);
+  const [isSidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    // Check Auth
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session && !pathname.includes('/login')) {
-        router.push('/admin/login');
-      } else {
-        setLoading(false);
-      }
-    };
-    checkAuth();
-  }, [pathname, router]);
+    // Open sidebar by default on large screens
+    if (window.innerWidth >= 768) {
+      setSidebarOpen(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    setLoading(false);
+  }, []);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -51,33 +50,39 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
-      {/* Mobile Overlay */}
+    <div className="flex min-h-screen bg-[var(--bg)] print:block print:bg-white text-[var(--text-primary)] print:text-black">
+      {/* Mobile Toggle Button */}
       {!isSidebarOpen && (
         <button 
           onClick={() => setSidebarOpen(true)}
-          style={{ position: 'fixed', top: '20px', right: '20px', zIndex: 50, background: 'var(--glass-bg)', border: '1px solid var(--border)', padding: '10px', borderRadius: '8px', color: 'var(--text-primary)', cursor: 'pointer' }}
+          style={{ position: 'fixed', top: '90px', right: '20px', zIndex: 30, background: 'var(--glass-bg)', border: '1px solid var(--border)', padding: '10px', borderRadius: '8px', color: 'var(--text-primary)', cursor: 'pointer', backdropFilter: 'blur(10px)' }}
           className="md:hidden"
         >
           <Menu size={24} />
         </button>
       )}
 
+      {/* Mobile Backdrop Overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="md:hidden"
+          style={{ position: 'fixed', inset: 0, zIndex: 35, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(2px)' }}
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside style={{
+      <aside className={`admin-sidebar z-40 fixed md:sticky print:hidden flex flex-col ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}`} style={{
         width: '280px',
         background: 'var(--bg-panel)',
         borderLeft: '1px solid var(--border)',
         padding: '30px 20px',
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'fixed',
         right: 0,
-        top: 0,
-        bottom: 0,
-        zIndex: 40,
-        transform: isSidebarOpen ? 'translateX(0)' : 'translateX(100%)',
-        transition: 'transform 0.3s ease-in-out'
+        top: '72px', // Start below the main navbar
+        height: 'calc(100vh - 72px)',
+        transition: 'transform 0.3s ease-in-out',
+        overflowY: 'auto',
+        alignSelf: 'flex-start'
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
           <h2 className="title-gold" style={{ fontSize: '1.5rem', margin: 0 }}>لوحة التحكم</h2>
@@ -121,12 +126,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </aside>
 
       {/* Main Content Area */}
-      <main style={{
-        flex: 1,
-        marginRight: isSidebarOpen ? '280px' : '0',
-        padding: '40px 30px',
-        transition: 'margin-right 0.3s ease-in-out',
-        width: '100%'
+      <main className="admin-main pt-24 md:pt-10 px-5 pb-10 print:p-0 print:m-0 print:w-full print:max-w-none print:block flex-1 w-full" style={{
+        minWidth: 0,
+        transition: 'all 0.3s ease-in-out'
       }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
           {children}

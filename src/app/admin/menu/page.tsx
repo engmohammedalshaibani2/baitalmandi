@@ -171,7 +171,7 @@ export default function MenuPage() {
           </div>
 
           <form onSubmit={handleSubmit}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '25px' }}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
               <div>
                 <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>القسم *</label>
                 <select className="form-input" value={form.category_id} onChange={e => setForm({ ...form, category_id: e.target.value })} required>
@@ -240,7 +240,7 @@ export default function MenuPage() {
                 </button>
               </div>
               {prices.map((price, idx) => (
-                <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 40px', gap: '15px', marginBottom: '12px', alignItems: 'end' }}>
+                <div key={idx} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-[1fr_1fr_1fr_40px] gap-4 mb-3 items-end">
                   <div>
                     <label style={{ display: 'block', marginBottom: '4px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>الحجم (مثال: حبة كاملة) *</label>
                     <input className="form-input" value={price.size_label_ar} onChange={e => updatePrice(idx, 'size_label_ar', e.target.value)} required />

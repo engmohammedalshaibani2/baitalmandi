@@ -743,3 +743,123 @@ html[data-theme='dark'] .btn-secondary:hover,
   height: 1px;
   width: 80px;
 }
+
+/* =============================================
+   PRINT STYLES (A4, RTL, Branded, Clean)
+   ============================================= */
+@media print {
+  /* Reset layout structure for printing */
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  body, main {
+    padding-top: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Hide public site headers, footers, sidebars and unwanted widgets */
+  nav.navbar,
+  footer,
+  #loading-screen,
+  .admin-sidebar,
+  .print\:hidden,
+  #theme-toggle,
+  button,
+  .btn-primary,
+  .btn-secondary,
+  .btn-danger,
+  input,
+  select,
+  .mobile-only {
+    display: none !important;
+  }
+
+  /* Admin main container reset */
+  .admin-main {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
+    position: relative !important;
+    top: 0 !important;
+  }
+
+  .admin-main > div {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Fix page structure */
+  .reports-container {
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+    background: transparent !important;
+    width: 100% !important;
+  }
+
+  /* Styling panels/cards for print: remove gradients, shadows, dark backgrounds */
+  .glass-panel, .glass-card {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border: 1px solid #cccccc !important;
+    box-shadow: none !important;
+    border-radius: 4px !important;
+    margin-bottom: 20px !important;
+    padding: 15px !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Text color reset for tables and elements */
+  h1, h2, h3, h4, h5, h6, p, span, td, th, div, li, ul, label {
+    color: #000000 !important;
+    text-shadow: none !important;
+  }
+
+  /* Specific color highlight for report titles and totals */
+  .title-gold, .text-\[var\(--gold\)\], .text-emerald-500, .text-red-500 {
+    color: #000000 !important;
+    font-weight: bold !important;
+  }
+
+  /* Make tables readable */
+  table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+  }
+  th, td {
+    border: 1px solid #cccccc !important;
+    padding: 8px !important;
+    color: #000000 !important;
+  }
+  thead {
+    background-color: #f3f4f6 !important;
+  }
+
+  /* Keep SVGs/Charts visible and crisp */
+  svg {
+    filter: invert(0) !important;
+  }
+
+  /* Custom print helper classes */
+  .print-break-after {
+    page-break-after: always;
+    break-after: always;
+  }
+}

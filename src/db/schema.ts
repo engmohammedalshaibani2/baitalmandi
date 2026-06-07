@@ -8,6 +8,9 @@ export const adminRoleEnum = pgEnum('admin_role', ['developer', 'manager', 'orde
 export const offerStatusEnum = pgEnum('offer_status', ['active', 'expired', 'disabled']);
 export const orderMethodEnum = pgEnum('order_method', ['whatsapp', 'website']);
 export const orderStatusEnum = pgEnum('order_status', ['pending', 'confirmed', 'preparing', 'on_the_way', 'delivered', 'cancelled']);
+export const paymentMethodEnum = pgEnum('payment_method', ['cash', 'transfer', 'wallet']);
+export const auditActionEnum = pgEnum('audit_action', ['modify', 'cancel', 'status_change', 'other']);
+export const reportPeriodEnum = pgEnum('report_period', ['daily', 'weekly', 'monthly']);
 
 // ==========================================
 // 1. Users
@@ -28,6 +31,7 @@ export const adminUsers = pgTable('admin_users', {
   email: text('email').unique().notNull(),
   fullName: text('full_name').notNull(),
   role: adminRoleEnum('role').notNull(),
+  authUserId: uuid('auth_user_id'),
 });
 
 // ==========================================
@@ -145,8 +149,11 @@ export const orders = pgTable('orders', {
   deliveryFee: numeric('delivery_fee').default('0').notNull(),
   taxAmount: numeric('tax_amount').default('0').notNull(),
   totalAmount: numeric('total_amount').notNull(),
+  notes: text('notes'),
   estimatedTime: timestamp('estimated_time', { withTimezone: true }),
   orderMethod: orderMethodEnum('order_method').notNull(),
+  paymentMethod: paymentMethodEnum('payment_method').default('cash').notNull(),
+  offerId: uuid('offer_id').references(() => offers.id),
   status: orderStatusEnum('status').default('pending').notNull(),
   version: integer('version').default(1).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -168,6 +175,7 @@ export const orderItems = pgTable('order_items', {
   sizeLabel: text('size_label').notNull(),
   quantity: integer('quantity').notNull(),
   unitPrice: numeric('unit_price').notNull(),
+  subtotal: numeric('subtotal'),
   totalPrice: numeric('total_price').notNull(),
 });
 
@@ -234,4 +242,31 @@ export const branches = pgTable('branches', {
   mapUrl: text('map_url'),
   workingHours: text('working_hours'),
   isActive: boolean('is_active').default(true).notNull(),
+});
+
+// ==========================================
+// 17. Audit Logs
+// ==========================================
+export const auditLogs = pgTable('audit_logs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  entityId: uuid('entity_id').notNull(),
+  entityType: text('entity_type').notNull(),
+  action: auditActionEnum('action').notNull(),
+  details: text('details'),
+  adminId: uuid('admin_id').references(() => adminUsers.id),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// ==========================================
+// 18. Scheduled Reports
+// ==========================================
+export const scheduledReports = pgTable('scheduled_reports', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  reportType: text('report_type').notNull(), // e.g., 'sales', 'full_summary'
+  period: reportPeriodEnum('period').notNull(),
+  recipients: text('recipients').array().notNull(), // Array of emails
+  isActive: boolean('is_active').default(true).notNull(),
+  lastSentAt: timestamp('last_sent_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });

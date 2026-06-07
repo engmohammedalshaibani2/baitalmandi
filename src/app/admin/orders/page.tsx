@@ -80,6 +80,12 @@ export default function OrdersPage() {
       // Log status change
       const order = orders.find(o => o.id === orderId);
       await supabase.from('order_status_history').insert({ order_id: orderId, old_status: order?.status, new_status: newStatus });
+      await supabase.from('audit_logs').insert({
+        entity_id: orderId,
+        entity_type: 'order',
+        action: newStatus === 'cancelled' ? 'cancel' : 'status_change',
+        details: `تغيير الحالة إلى ${STATUS_MAP[newStatus]?.label}`
+      });
     }
     setUpdatingId(null);
     fetchOrders();
@@ -105,7 +111,7 @@ export default function OrdersPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '15px' }}>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>
           <h1 className="title-gold" style={{ fontSize: '2rem', marginBottom: '5px' }}>إدارة الطلبات</h1>
           <p style={{ color: 'var(--text-secondary)' }}>{orders.length} طلب</p>
@@ -116,10 +122,10 @@ export default function OrdersPage() {
       </div>
 
       {/* Status Filters */}
-      <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', marginBottom: '25px', paddingBottom: '5px' }}>
-        <button className={statusFilter === 'all' ? 'btn-primary' : 'btn-secondary'} onClick={() => setStatusFilter('all')} style={{ whiteSpace: 'nowrap', padding: '8px 20px', borderRadius: '25px' }}>الكل</button>
+      <div className="flex gap-2 overflow-x-auto pb-2 mb-6" style={{ WebkitOverflowScrolling: 'touch' }}>
+        <button className={statusFilter === 'all' ? 'btn-primary' : 'btn-secondary'} onClick={() => setStatusFilter('all')} style={{ whiteSpace: 'nowrap', padding: '8px 20px', borderRadius: '14px' }}>الكل</button>
         {Object.entries(STATUS_MAP).map(([key, val]) => (
-          <button key={key} className={statusFilter === key ? 'btn-primary' : 'btn-secondary'} onClick={() => setStatusFilter(key)} style={{ whiteSpace: 'nowrap', padding: '8px 20px', borderRadius: '25px' }}>
+          <button key={key} className={statusFilter === key ? 'btn-primary' : 'btn-secondary'} onClick={() => setStatusFilter(key)} style={{ whiteSpace: 'nowrap', padding: '8px 20px', borderRadius: '14px' }}>
             {val.label}
           </button>
         ))}

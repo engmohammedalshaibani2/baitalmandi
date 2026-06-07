@@ -104,14 +104,12 @@ export default function Home() {
         <div className="heritage-corner heritage-corner-br" />
 
         <div className="container animate-fade-in relative z-10 py-16 px-4 md:px-8 mt-4 md:mt-10">
-          <div className="inline-block border rounded-full px-5 py-2 mb-8 md:mb-10 text-sm md:text-base font-semibold tracking-wider" style={{ background: 'rgba(244,239,230,0.1)', borderColor: 'rgba(244,239,230,0.2)', color: '#F4EFE6' }}>
-            <UtensilsCrossed size={18} className="inline mr-2 -mt-0.5"/> مطعم يمني أصيل
-          </div>
+          
           <h1 className="text-6xl md:text-8xl lg:text-[6.5rem] mb-6 md:mb-10 font-[var(--font-tajawal)] leading-tight" style={{ color: 'var(--gold)', textShadow: '0 0 20px rgba(197, 155, 95, 0.4)' }}>
             بيت المندي
           </h1>
           <p className="text-lg md:text-2xl lg:text-3xl mb-12 md:mb-16 max-w-3xl mx-auto leading-relaxed" style={{ color: '#F4EFE6', opacity: 0.9 }}>
-            أصالة الطعم اليمني العريق... تجربة فريدة تأخذك إلى قلب التراث
+            بيــت المنــدي ... بيــت الجــميـــع
           </p>
           <div className="flex flex-col sm:flex-row gap-5 justify-center items-center">
             <Link href="/menu" className="btn-primary text-lg px-12 py-4 rounded-2xl w-full sm:w-auto" style={{ background: '#590f2b', color: '#F4EFE6', border: '1px solid rgba(197,155,95,0.4)', boxShadow: 'none' }}>

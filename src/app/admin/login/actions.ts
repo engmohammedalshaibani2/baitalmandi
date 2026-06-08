@@ -1,32 +1,61 @@
-'use server';
+'use server'
 
-import { createClient } from '@/utils/supabase/server';
-import { cookies } from 'next/headers';
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
 
-export async function loginAction(formData: FormData) {
-  const email = formData.get('email') as string;
-  const password = formData.get('password') as string;
-  
-  // Before logging in, clear any existing bad cookies just in case
-  const cookieStore = await cookies();
-  cookieStore.getAll().forEach((c) => {
-    if (c.name.includes('supabase') || c.name.includes('sb-')) {
-      cookieStore.delete(c.name);
+export async function login(formData: FormData) {
+  const cookieStore = await cookies()
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          )
+        },
+      },
     }
-  });
+  )
 
-  const supabase = await createClient();
-  
-  const { error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
+  await supabase.auth.signOut()
+
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: formData.get('email') as string,
+    password: formData.get('password') as string,
+  })
 
   if (error) {
-    console.error('Login action error:', error.message);
-    return { error: 'البريد الإلكتروني أو كلمة المرور غير صحيحة' };
+    return { error: error.message }
   }
 
-  console.log('Login action success, returning success flag');
-  return { success: true };
+  redirect('/admin/dashboard')
+}
+
+export async function logout() {
+  const cookieStore = await cookies()
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    {
+      cookies: {
+        getAll() { return cookieStore.getAll() },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          )
+        },
+      },
+    }
+  )
+
+  await supabase.auth.signOut()
+  redirect('/admin/login')
 }

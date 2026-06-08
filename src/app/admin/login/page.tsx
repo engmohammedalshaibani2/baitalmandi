@@ -1,31 +1,40 @@
 'use client';
 
 import { useState } from 'react';
-import { supabase } from '@/lib/supabase';
-import { useRouter } from 'next/navigation';
 
 export default function AdminLogin() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin', // ensures cookies from response are saved
+        body: JSON.stringify({ email, password }),
+      });
 
-    if (error) {
-      setError('البريد الإلكتروني أو كلمة المرور غير صحيحة');
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || 'حدث خطأ غير متوقع');
+        setLoading(false);
+        return;
+      }
+
+      // Hard navigate so the browser sends the new cookies to the server
+      window.location.href = '/admin';
+    } catch (err) {
+      console.error('[Login page] fetch error:', err);
+      setError('تعذر الاتصال بالسيرفر، تحقق من الاتصال وحاول مرة أخرى');
       setLoading(false);
-    } else {
-      router.push('/admin');
     }
   };
 
@@ -34,32 +43,32 @@ export default function AdminLogin() {
       <div className="glass-panel" style={{ padding: '50px', width: '100%', maxWidth: '450px', textAlign: 'center' }}>
         <h1 className="title-gold" style={{ fontSize: '2rem', marginBottom: '10px' }}>لوحة التحكم</h1>
         <p style={{ color: 'rgba(255,255,255,0.5)', marginBottom: '30px' }}>بيت المندي — منطقة خاصة بالمدير</p>
-        
-        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '20px', textAlign: 'right' }}>
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px', textAlign: 'right' }}>
           <div>
             <label style={{ display: 'block', marginBottom: '8px', color: 'rgba(255,255,255,0.8)' }}>البريد الإلكتروني</label>
-            <input 
-              type="email" 
-              className="form-input" 
+            <input
+              type="email"
+              className="form-input"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="admin@baitalmandi.com"
-              required 
+              required
               style={{ direction: 'ltr', textAlign: 'right' }}
             />
           </div>
           <div>
             <label style={{ display: 'block', marginBottom: '8px', color: 'rgba(255,255,255,0.8)' }}>كلمة المرور</label>
-            <input 
-              type="password" 
-              className="form-input" 
+            <input
+              type="password"
+              className="form-input"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              required 
+              required
             />
           </div>
-          
+
           {error && (
             <div style={{ background: 'rgba(231,76,60,0.15)', color: '#e74c3c', padding: '10px', borderRadius: '8px', fontSize: '0.9rem', textAlign: 'center' }}>
               {error}

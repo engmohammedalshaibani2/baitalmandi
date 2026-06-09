@@ -43,6 +43,11 @@ export async function POST(request: Request) {
   if (data.session) {
     const { access_token, refresh_token, expires_at } = data.session
     const maxAge = expires_at ? Math.floor((expires_at * 1000 - Date.now()) / 1000) : 3600
+    
+    // Use Supabase's expected cookie names
+    const projectRef = process.env.NEXT_PUBLIC_SUPABASE_URL!.split('//')[1].split('.')[0]
+    const authTokenName = `sb-${projectRef}-auth-token`
+    const refreshTokenName = `sb-${projectRef}-auth-token.0`
 
     const cookieOptions = {
       path: '/',
@@ -53,13 +58,13 @@ export async function POST(request: Request) {
     }
 
     // Write both cookies directly to Response
-    response.cookies.set('sb-auth-token', access_token, cookieOptions)
-    response.cookies.set('sb-refresh-token', refresh_token, {
+    response.cookies.set(authTokenName, access_token, cookieOptions)
+    response.cookies.set(refreshTokenName, refresh_token, {
       ...cookieOptions,
       maxAge: 60 * 60 * 24 * 365, // 1 year
     })
 
-    console.log('[auth:login] Wrote cookies to Response headers')
+    console.log('[auth:login] Wrote cookies to Response headers', { authTokenName, refreshTokenName })
   }
 
   return response

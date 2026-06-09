@@ -43,8 +43,13 @@ export async function login(formData: FormData) {
   if (data.session) {
     const { access_token, refresh_token, expires_at } = data.session
     const maxAge = expires_at ? Math.floor((expires_at * 1000 - Date.now()) / 1000) : 3600
+    
+    // Use Supabase's expected cookie names
+    const projectRef = process.env.NEXT_PUBLIC_SUPABASE_URL!.split('//')[1].split('.')[0]
+    const authTokenName = `sb-${projectRef}-auth-token`
+    const refreshTokenName = `sb-${projectRef}-auth-token.0`
 
-    cookieStore.set('sb-auth-token', access_token, {
+    cookieStore.set(authTokenName, access_token, {
       path: '/',
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -52,7 +57,7 @@ export async function login(formData: FormData) {
       maxAge,
     })
 
-    cookieStore.set('sb-refresh-token', refresh_token, {
+    cookieStore.set(refreshTokenName, refresh_token, {
       path: '/',
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -60,7 +65,7 @@ export async function login(formData: FormData) {
       maxAge: 60 * 60 * 24 * 365,
     })
     
-    console.log('[auth:action:login] Wrote cookies before redirect')
+    console.log('[auth:action:login] Wrote cookies before redirect', { authTokenName, refreshTokenName })
   }
 
   redirect('/admin/dashboard')

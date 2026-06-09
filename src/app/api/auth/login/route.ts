@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 
 export async function POST(request: Request) {
   const { email, password } = await request.json()
+  console.log('[auth:login] POST request', { email })
   const cookieStore = await cookies()
 
   const supabase = createServerClient(
@@ -14,7 +15,8 @@ export async function POST(request: Request) {
         getAll() {
           return cookieStore.getAll()
         },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet, headers) {
+          console.log('[auth:login] setAll called', { cookiesToSet, headers })
           cookiesToSet.forEach(({ name, value, options }) =>
             cookieStore.set(name, value, options)
           )
@@ -28,9 +30,13 @@ export async function POST(request: Request) {
     password,
   })
 
+  console.log('[auth:login] signIn result', { data, error })
+
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 401 })
   }
+
+  console.log('[auth:login] cookieStore after signIn', cookieStore.getAll())
 
   return NextResponse.json({ user: data.user })
 }

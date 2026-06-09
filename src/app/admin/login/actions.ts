@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation'
 
 export async function login(formData: FormData) {
   const cookieStore = await cookies()
+  console.log('[auth:action:login] form', { email: formData.get('email') })
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,6 +17,7 @@ export async function login(formData: FormData) {
           return cookieStore.getAll()
         },
         setAll(cookiesToSet) {
+          console.log('[auth:action:login] setAll called', { cookiesToSet })
           cookiesToSet.forEach(({ name, value, options }) =>
             cookieStore.set(name, value, options)
           )
@@ -30,6 +32,8 @@ export async function login(formData: FormData) {
     email: formData.get('email') as string,
     password: formData.get('password') as string,
   })
+
+  console.log('[auth:action:login] signIn result', { data, error })
 
   if (error) {
     return { error: error.message }

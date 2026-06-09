@@ -39,7 +39,7 @@ export async function login(formData: FormData) {
     return { error: error.message }
   }
 
-  // Manually write session cookies after successful sign-in
+  // Manually write session cookies before redirect
   if (data.session) {
     const { access_token, refresh_token, expires_at } = data.session
     const maxAge = expires_at ? Math.floor((expires_at * 1000 - Date.now()) / 1000) : 3600
@@ -57,10 +57,10 @@ export async function login(formData: FormData) {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 365, // 1 year
+      maxAge: 60 * 60 * 24 * 365,
     })
     
-    console.log('[auth:action:login] Manually wrote session cookies')
+    console.log('[auth:action:login] Wrote cookies before redirect')
   }
 
   redirect('/admin/dashboard')

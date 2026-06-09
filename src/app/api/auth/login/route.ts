@@ -36,15 +36,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 401 })
   }
 
-  // Create response with cookies
-  const response = NextResponse.json({ user: data.user })
+  // Create a server redirect response and attach cookies so the browser receives them
+  const redirectUrl = new URL('/admin/dashboard', request.url)
+  const response = NextResponse.redirect(redirectUrl)
 
-  // Manually write session cookies to Response headers
   if (data.session) {
     const { access_token, refresh_token, expires_at } = data.session
     const maxAge = expires_at ? Math.floor((expires_at * 1000 - Date.now()) / 1000) : 3600
-    
-    // Use Supabase's expected cookie names
+
     const projectRef = process.env.NEXT_PUBLIC_SUPABASE_URL!.split('//')[1].split('.')[0]
     const authTokenName = `sb-${projectRef}-auth-token`
     const refreshTokenName = `sb-${projectRef}-auth-token.0`
@@ -57,14 +56,13 @@ export async function POST(request: Request) {
       maxAge,
     }
 
-    // Write both cookies directly to Response
     response.cookies.set(authTokenName, access_token, cookieOptions)
     response.cookies.set(refreshTokenName, refresh_token, {
       ...cookieOptions,
-      maxAge: 60 * 60 * 24 * 365, // 1 year
+      maxAge: 60 * 60 * 24 * 365,
     })
 
-    console.log('[auth:login] Wrote cookies to Response headers', { authTokenName, refreshTokenName })
+    console.log('[auth:login] Wrote cookies to Response headers and redirecting', { authTokenName, refreshTokenName })
   }
 
   return response

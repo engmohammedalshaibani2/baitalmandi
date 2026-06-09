@@ -6,14 +6,6 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    /*
-     * تشغيل Middleware على كل المسارات ما عدا:
-     * - _next/static (ملفات ثابتة)
-     * - _next/image (تحسين الصور)
-     * - favicon.ico
-     * - الصور والملفات العامة
-     */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
-  ],
+  // تقييد Middleware ليعمل فقط على مسارات الإدارة
+  matcher: ['/admin/:path*'],
 };

@@ -39,6 +39,10 @@ export async function login(formData: FormData) {
     return { error: error.message }
   }
 
+  // Force cookie writing by calling getUser()
+  const { data: userData } = await supabase.auth.getUser()
+  console.log('[auth:action:login] getUser after signIn', userData)
+
   redirect('/admin/dashboard')
 }
 

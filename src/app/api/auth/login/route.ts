@@ -36,6 +36,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 401 })
   }
 
+  // Force cookie writing by calling getUser()
+  const { data: userData } = await supabase.auth.getUser()
+  console.log('[auth:login] getUser after signIn', userData)
+
   console.log('[auth:login] cookieStore after signIn', cookieStore.getAll())
 
   return NextResponse.json({ user: data.user })

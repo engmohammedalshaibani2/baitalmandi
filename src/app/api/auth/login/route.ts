@@ -36,9 +36,29 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 401 })
   }
 
-  // Force cookie writing by calling getUser()
-  const { data: userData } = await supabase.auth.getUser()
-  console.log('[auth:login] getUser after signIn', userData)
+  // Manually write session cookies after successful sign-in
+  if (data.session) {
+    const { access_token, refresh_token, expires_at } = data.session
+    const maxAge = expires_at ? Math.floor((expires_at * 1000 - Date.now()) / 1000) : 3600
+
+    cookieStore.set('sb-auth-token', access_token, {
+      path: '/',
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge,
+    })
+
+    cookieStore.set('sb-refresh-token', refresh_token, {
+      path: '/',
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 365, // 1 year
+    })
+    
+    console.log('[auth:login] Manually wrote session cookies', { maxAge })
+  }
 
   console.log('[auth:login] cookieStore after signIn', cookieStore.getAll())
 

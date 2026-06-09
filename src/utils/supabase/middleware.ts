@@ -6,6 +6,13 @@ export async function updateSession(request: NextRequest) {
     request,
   })
 
+  try {
+    const cookieNames = request.cookies.getAll().map((c) => c.name)
+    console.log('[middleware] request for', request.nextUrl.pathname, 'cookies present:', cookieNames)
+  } catch (err) {
+    console.log('[middleware] could not read request cookies', err)
+  }
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
@@ -37,6 +44,8 @@ export async function updateSession(request: NextRequest) {
 
   const { data } = await supabase.auth.getClaims()
   const user = data?.claims
+
+  console.log('[middleware] getClaims -> user?', !!user)
 
   if (
     !user &&

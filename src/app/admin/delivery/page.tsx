@@ -42,7 +42,8 @@ const DEFAULT_SETTINGS: Record<string, string> = {
 };
 
 export default function AdminDeliveryPage() {
-  const { refresh } = useSettings();
+  const { settings: appSettings, refresh } = useSettings();
+  const currency = appSettings['currency'] || 'ريال';
   const [settings, setSettings] = useState<Record<string, string>>({ ...DEFAULT_SETTINGS });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -411,7 +412,7 @@ export default function AdminDeliveryPage() {
                   return (
                     <div key={d} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
                       <span>{d} كم</span>
-                      <strong style={{ color: '#10b981' }}>{fee} ريال</strong>
+                      <strong style={{ color: '#10b981' }}>{fee} {currency}</strong>
                     </div>
                   );
                 });

@@ -3,8 +3,11 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Plus, Edit2, Trash2, Save, X, ChevronDown, ChevronUp, DollarSign, Package, Upload } from 'lucide-react';
+import { useSettings } from '@/lib/settings-context';
 
 export default function MenuPage() {
+  const { settings } = useSettings();
+  const currency = settings['currency'] || 'ريال';
   const [items, setItems] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -311,8 +314,8 @@ export default function MenuPage() {
                       {item.prices.map((price: any) => (
                         <div key={price.id} style={{ padding: '10px 15px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid var(--border)' }}>
                           <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', display: 'block', marginBottom: '4px' }}>{price.size_label_ar}</span>
-                          <strong style={{ color: 'var(--gold)' }}>{price.original_price} ريال</strong>
-                          {price.sale_price && <span style={{ color: '#10b981', display: 'block', fontSize: '0.8rem', marginTop: '4px' }}>عرض: {price.sale_price} ريال</span>}
+                          <strong style={{ color: 'var(--gold)' }}>{price.original_price} {currency}</strong>
+                          {price.sale_price && <span style={{ color: '#10b981', display: 'block', fontSize: '0.8rem', marginTop: '4px' }}>عرض: {price.sale_price} {currency}</span>}
                         </div>
                       ))}
                     </div>

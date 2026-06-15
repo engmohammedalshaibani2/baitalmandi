@@ -30,6 +30,7 @@ const PAYMENT_LABELS: Record<string, string> = {
 export default function TrackOrderPage() {
   const { orderId } = useParams<{ orderId: string }>();
   const { settings } = useSettings();
+  const currency = settings['currency'] || 'ريال';
   const [order, setOrder] = useState<any>(null);
   const [orderOffers, setOrderOffers] = useState<OrderOfferSnapshot[]>([]);
   const [loading, setLoading] = useState(true);
@@ -257,7 +258,7 @@ export default function TrackOrderPage() {
                   )}
                   <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginRight: '8px' }}>× {item.quantity}</span>
                 </div>
-                <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{item.total_price} ريال</span>
+                <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{item.total_price} {currency}</span>
               </div>
             ))}
           </div>
@@ -270,27 +271,27 @@ export default function TrackOrderPage() {
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>
                   <span>السعر الأصلي</span>
-                  <span style={{ textDecoration: 'line-through', color: 'var(--text-muted)' }}>{bundleInfo.originalPrice} ريال</span>
+                  <span style={{ textDecoration: 'line-through', color: 'var(--text-muted)' }}>{bundleInfo.originalPrice} {currency}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#10b981' }}>
                   <span>وفرت</span>
-                  <span>-{bundleInfo.discountAmount} ريال ({bundleInfo.discountPercent}%)</span>
+                  <span>-{bundleInfo.discountAmount} {currency} ({bundleInfo.discountPercent}%)</span>
                 </div>
               </div>
             )}
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>
               <span>المجموع الفرعي</span>
-              <span>{order.subtotal} ريال</span>
+              <span>{order.subtotal} {currency}</span>
             </div>
             {parseFloat(order.delivery_fee) > 0 && (
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>
                 <span>رسوم التوصيل</span>
-                <span>{order.delivery_fee} ريال</span>
+                <span>{order.delivery_fee} {currency}</span>
               </div>
             )}
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.2rem', fontWeight: 900, color: 'var(--gold)', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid var(--border)' }}>
               <span>الإجمالي</span>
-              <span>{order.total_amount} ريال</span>
+              <span>{order.total_amount} {currency}</span>
             </div>
           </div>
         </div>

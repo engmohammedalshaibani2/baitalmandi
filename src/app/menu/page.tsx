@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useCartStore } from '@/store/cartStore';
 import { supabase } from '@/lib/supabase';
 import { calculateOfferPrice, resolveItemPrice, offerTypeLabel } from '@/lib/offer-pricing';
+import { useSettings } from '@/lib/settings-context';
 import { ShoppingCart, Plus, Tag, Search, Percent, Gift } from 'lucide-react';
 
 export default function MenuPage() {
@@ -22,6 +23,9 @@ export default function MenuPage() {
   const cartTotalItems = useCartStore((state) => state.getTotalItems());
   const cartItems = useCartStore((state) => state.items);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+
+  const { settings } = useSettings();
+  const currency = settings['currency'] || 'ريال';
 
   useEffect(() => {
     fetchData();
@@ -213,11 +217,11 @@ export default function MenuPage() {
                         <div>
                           {p.originalPrice > p.finalPrice && (
                             <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '2px' }}>
-                              <span style={{ textDecoration: 'line-through' }}>{p.originalPrice} ريال</span>
-                              <span style={{ color: '#10b981', marginRight: '8px', fontWeight: 600 }}>وفر {p.savings} ريال</span>
+                              <span style={{ textDecoration: 'line-through' }}>{p.originalPrice} {currency}</span>
+                              <span style={{ color: '#10b981', marginRight: '8px', fontWeight: 600 }}>وفر {p.savings} {currency}</span>
                             </div>
                           )}
-                          <span className="neon-text" style={{ fontSize: '1.6rem', fontWeight: 900 }}>{p.finalPrice} ريال</span>
+                          <span className="neon-text" style={{ fontSize: '1.6rem', fontWeight: 900 }}>{p.finalPrice} {currency}</span>
                         </div>
                         {(() => {
                           const offerCartId = `offer_${offer.id}`;
@@ -388,7 +392,7 @@ export default function MenuPage() {
                         <span style={{ fontSize: '0.95rem' }}>{price.size_label_ar}</span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                           <span className="title-gold" style={{ fontSize: '1.1rem', fontWeight: 800 }}>
-                            {price.sale_price || price.original_price} ريال
+                            {price.sale_price || price.original_price} {currency}
                           </span>
                           {cartItem ? (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>

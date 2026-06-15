@@ -103,8 +103,9 @@ export async function exportExcelReport(params: {
   statusFilter:  string;
   paymentFilter: string;
   searchQuery:   string;
+  currency?:     string;
 }) {
-  const { currentStart, currentEnd, prevStart, prevEnd, statusFilter, paymentFilter, searchQuery } = params;
+  const { currentStart, currentEnd, prevStart, prevEnd, statusFilter, paymentFilter, searchQuery, currency = 'ريال' } = params;
 
   const startFmt  = new Date(currentStart).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
   const endFmt    = new Date(currentEnd).toLocaleDateString('ar-EG',   { year: 'numeric', month: 'long', day: 'numeric' });
@@ -133,7 +134,7 @@ export async function exportExcelReport(params: {
   // ════════════════════════════════
   const wsO = wb.addWorksheet('سجل الطلبات', { views: [{ rightToLeft: true }] });
   const oWidths = [6, 22, 22, 16, 16, 14, 14, 20];
-  const oHdrs   = ['#', 'رقم الطلب', 'اسم العميل', 'رقم الهاتف', 'المبلغ (ريال)', 'الحالة', 'طريقة الدفع', 'التاريخ'];
+  const oHdrs   = ['#', 'رقم الطلب', 'اسم العميل', 'رقم الهاتف', `المبلغ (${currency})`, 'الحالة', 'طريقة الدفع', 'التاريخ'];
   oWidths.forEach((w, i) => { wsO.getColumn(i + 1).width = w; });
   addHeader(wsO, 'تقرير سجل الطلبات المفصل', oHdrs.length, hdrOpts);
   wsO.getRow(5).values = oHdrs;
@@ -154,7 +155,7 @@ export async function exportExcelReport(params: {
   // ════════════════════════════════
   const wsP = wb.addWorksheet('الأطباق والأصناف', { views: [{ rightToLeft: true }] });
   const pWidths = [6, 34, 18, 16, 18];
-  const pHdrs   = ['#', 'اسم الطبق', 'التصنيف', 'الكمية المباعة', 'الإيرادات (ريال)'];
+  const pHdrs   = ['#', 'اسم الطبق', 'التصنيف', 'الكمية المباعة', `الإيرادات (${currency})`];
   pWidths.forEach((w, i) => { wsP.getColumn(i + 1).width = w; });
   addHeader(wsP, 'تقرير تحليل الأطباق والأصناف', pHdrs.length, hdrOpts);
   wsP.getRow(5).values = pHdrs;
@@ -167,7 +168,7 @@ export async function exportExcelReport(params: {
   const cats = productsRes?.categoriesSales ?? [];
   if (cats.length > 0) {
     addDivider(wsP, 'مبيعات التصنيفات', pHdrs.length);
-    const cH = wsP.addRow(['#', 'التصنيف', '', 'الكمية', 'الإيرادات (ريال)']);
+    const cH = wsP.addRow(['#', 'التصنيف', '', 'الكمية', 'الإيرادات ({currency})']);
     styleColHdrRow(wsP, cH.number, pHdrs.length);
     const cStart = wsP.rowCount + 1;
     cats.forEach((c: any, i: number) => wsP.addRow([i + 1, c.name, '', Number(c.quantity), Number(c.revenue)]));
@@ -189,7 +190,7 @@ export async function exportExcelReport(params: {
   // ════════════════════════════════
   const wsC = wb.addWorksheet('تحليل العملاء', { views: [{ rightToLeft: true }] });
   const cWidths = [6, 25, 16, 14, 20, 16, 18];
-  const cHdrs   = ['#', 'اسم العميل', 'رقم الهاتف', 'عدد الطلبات', 'إجمالي الإنفاق (ريال)', 'متوسط الطلب', 'آخر طلب'];
+  const cHdrs   = ['#', 'اسم العميل', 'رقم الهاتف', 'عدد الطلبات', `إجمالي الإنفاق (${currency})`, 'متوسط الطلب', 'آخر طلب'];
   cWidths.forEach((w, i) => { wsC.getColumn(i + 1).width = w; });
   addHeader(wsC, 'تقرير تحليل العملاء', cHdrs.length, hdrOpts);
   wsC.getRow(5).values = cHdrs;
@@ -214,7 +215,7 @@ export async function exportExcelReport(params: {
   const og = Number(compareRes?.ordersGrowth  ?? 0);
   const ag = Number(compareRes?.avgOrderGrowth ?? 0);
   const metrics = [
-    ['إجمالي المبيعات (ريال)', Number(compareRes?.currentSummary?.sales    ?? 0).toFixed(2), Number(compareRes?.previousSummary?.sales    ?? 0).toFixed(2), `${sg > 0 ? '+' : ''}${sg.toFixed(1)}%`],
+    [`إجمالي المبيعات (${currency})`, Number(compareRes?.currentSummary?.sales    ?? 0).toFixed(2), Number(compareRes?.previousSummary?.sales    ?? 0).toFixed(2), `${sg > 0 ? '+' : ''}${sg.toFixed(1)}%`],
     ['عدد الطلبات',            Number(compareRes?.currentSummary?.count    ?? 0),             Number(compareRes?.previousSummary?.count    ?? 0),             `${og > 0 ? '+' : ''}${og.toFixed(1)}%`],
     ['متوسط قيمة الطلب',      Number(compareRes?.currentSummary?.avgOrder ?? 0).toFixed(2), Number(compareRes?.previousSummary?.avgOrder ?? 0).toFixed(2), `${ag > 0 ? '+' : ''}${ag.toFixed(1)}%`],
   ];
@@ -231,7 +232,7 @@ export async function exportExcelReport(params: {
   const pays = compareRes?.payments ?? [];
   if (pays.length > 0) {
     addDivider(wsS, 'توزيع طرق الدفع', sHdrs.length);
-    const ph = wsS.addRow(['طريقة الدفع', 'المبيعات (ريال)', '', '']);
+    const ph = wsS.addRow(['طريقة الدفع', `المبيعات (${currency})`, '', '']);
     styleColHdrRow(wsS, ph.number, sHdrs.length);
     const pStart = wsS.rowCount + 1;
     pays.forEach((p: any) => wsS.addRow([xlPayment(p.method), Number(p.sales).toFixed(2), '', '']));
@@ -252,13 +253,13 @@ export async function exportExcelReport(params: {
 
     const metrics = [
       ['عدد الطلبات', deliveryRes.totalOrders, ''],
-      ['إجمالي رسوم التوصيل', `${Number(deliveryRes.totalDeliveryFee).toLocaleString('ar-EG')} ﷼`, ''],
-      ['متوسط رسوم التوصيل', `${Number(deliveryRes.avgDeliveryFee).toLocaleString('ar-EG')} ﷼`, ''],
+      ['إجمالي رسوم التوصيل', `${Number(deliveryRes.totalDeliveryFee).toLocaleString('ar-EG')} {currency}`, ''],
+      ['متوسط رسوم التوصيل', `${Number(deliveryRes.avgDeliveryFee).toLocaleString('ar-EG')} {currency}`, ''],
       ['متوسط مسافة التوصيل', `${deliveryRes.avgDistanceKm} كم`, ''],
-      ['الرسوم الأساسية', `${Number(deliveryRes.totalBaseFee).toLocaleString('ar-EG')} ﷼`, ''],
-      ['رسوم المسافة الإضافية', `${Number(deliveryRes.totalExtraFee).toLocaleString('ar-EG')} ﷼`, ''],
-      ['رسوم الطقس', `${Number(deliveryRes.totalWeatherFee).toLocaleString('ar-EG')} ﷼`, `${deliveryRes.ordersWithWeatherFee} طلب`],
-      ['رسوم الذروة', `${Number(deliveryRes.totalPeakFee).toLocaleString('ar-EG')} ﷼`, `${deliveryRes.ordersWithPeakFee} طلب، ${deliveryRes.avgPeakPercentage}%`],
+      ['الرسوم الأساسية', `${Number(deliveryRes.totalBaseFee).toLocaleString('ar-EG')} {currency}`, ''],
+      ['رسوم المسافة الإضافية', `${Number(deliveryRes.totalExtraFee).toLocaleString('ar-EG')} {currency}`, ''],
+      ['رسوم الطقس', `${Number(deliveryRes.totalWeatherFee).toLocaleString('ar-EG')} {currency}`, `${deliveryRes.ordersWithWeatherFee} طلب`],
+      ['رسوم الذروة', `${Number(deliveryRes.totalPeakFee).toLocaleString('ar-EG')} {currency}`, `${deliveryRes.ordersWithPeakFee} طلب، ${deliveryRes.avgPeakPercentage}%`],
     ];
     metrics.forEach(m => wsD.addRow(m));
     stripeRows(wsD, 6, 5 + metrics.length, dHdrs.length);
@@ -269,7 +270,7 @@ export async function exportExcelReport(params: {
       const dh = wsD.addRow(['اليوم', 'عدد الطلبات', 'إجمالي الرسوم']);
       styleColHdrRow(wsD, dh.number, dHdrs.length);
       const dStart = wsD.rowCount + 1;
-      feeByDay.forEach((r: any) => wsD.addRow([r.day, r.orders, `${Number(r.totalFee).toLocaleString('ar-EG')} ﷼`]));
+      feeByDay.forEach((r: any) => wsD.addRow([r.day, r.orders, `${Number(r.totalFee).toLocaleString('ar-EG')} {currency}`]));
       stripeRows(wsD, dStart, wsD.rowCount, dHdrs.length);
     }
 
@@ -279,7 +280,7 @@ export async function exportExcelReport(params: {
       const dh = wsD.addRow(['نطاق المسافة', 'عدد الطلبات', 'إجمالي الرسوم']);
       styleColHdrRow(wsD, dh.number, dHdrs.length);
       const dStart = wsD.rowCount + 1;
-      feeByDistanceRange.forEach((r: any) => wsD.addRow([r.range, r.orders, `${Number(r.totalFee).toLocaleString('ar-EG')} ﷼`]));
+      feeByDistanceRange.forEach((r: any) => wsD.addRow([r.range, r.orders, `${Number(r.totalFee).toLocaleString('ar-EG')} {currency}`]));
       stripeRows(wsD, dStart, wsD.rowCount, dHdrs.length);
     }
   }

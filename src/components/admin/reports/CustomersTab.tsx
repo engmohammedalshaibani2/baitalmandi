@@ -1,7 +1,10 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useSettings } from '@/lib/settings-context';
 
 export default function CustomersTab({ startDate, endDate, status, payment, search }: { startDate: string, endDate: string, status: string, payment: string, search: string }) {
+  const { settings } = useSettings();
+  const currency = settings['currency'] || 'ريال';
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -42,8 +45,8 @@ export default function CustomersTab({ startDate, endDate, status, payment, sear
                 <td className="p-4 font-medium">{c.name}</td>
                 <td className="p-4 font-mono">{c.phone}</td>
                 <td className="p-4 text-center">{c.ordersCount}</td>
-                <td className="p-4 font-bold text-[var(--gold)]">{Number(c.spend).toFixed(2)} ريال</td>
-                <td className="p-4 text-sm text-gray-400">{Number(c.avgOrder).toFixed(2)} ريال</td>
+                <td className="p-4 font-bold text-[var(--gold)]">{Number(c.spend).toFixed(2)} {currency}</td>
+                <td className="p-4 text-sm text-gray-400">{Number(c.avgOrder).toFixed(2)} {currency}</td>
                 <td className="p-4 text-sm" dir="ltr">{new Date(c.lastOrder).toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' })}</td>
               </tr>
             ))}

@@ -1,18 +1,24 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 
 interface SettingsContextValue {
   settings: Record<string, string>;
   loading: boolean;
   refresh: () => Promise<void>;
+  currency: string;
+  fmt: (amount: number) => string;
 }
+
+const FALLBACK_CURRENCY = 'ريال';
 
 const SettingsContext = createContext<SettingsContextValue>({
   settings: {},
   loading: true,
   refresh: async () => {},
+  currency: FALLBACK_CURRENCY,
+  fmt: (amount: number) => `${amount.toLocaleString('ar-YE')} ${FALLBACK_CURRENCY}`,
 });
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
@@ -31,7 +37,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         setSettings(map);
       }
     } catch {
-      // Settings unavailable — components will fall back to hardcoded defaults
     } finally {
       setLoading(false);
     }
@@ -41,8 +46,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     refresh();
   }, [refresh]);
 
+  const currency = useMemo(() => settings['currency'] || FALLBACK_CURRENCY, [settings]);
+
+  const fmt = useCallback((amount: number) => {
+    return `${amount.toLocaleString('ar-YE')} ${currency}`;
+  }, [currency]);
+
   return (
-    <SettingsContext.Provider value={{ settings, loading, refresh }}>
+    <SettingsContext.Provider value={{ settings, loading, refresh, currency, fmt }}>
       {children}
     </SettingsContext.Provider>
   );

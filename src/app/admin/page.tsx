@@ -4,8 +4,12 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { ShoppingBag, TrendingUp, Users, DollarSign, UtensilsCrossed } from 'lucide-react';
 import Link from 'next/link';
+import { useSettings } from '@/lib/settings-context';
 
 export default function AdminDashboard() {
+  const { settings } = useSettings();
+  const currency = settings['currency'] || 'ريال';
+  const fmt = (amount: number) => `${amount.toLocaleString('ar-YE')} ${currency}`;
   const [stats, setStats] = useState({
     totalOrders: 0,
     totalRevenue: 0,
@@ -51,7 +55,7 @@ export default function AdminDashboard() {
 
   const statCards = [
     { title: 'إجمالي الطلبات', value: stats.totalOrders, icon: ShoppingBag, color: 'var(--gold)' },
-    { title: 'مبيعات اليوم', value: `${stats.totalRevenue} ريال`, icon: DollarSign, color: '#10b981' },
+    { title: 'مبيعات اليوم', value: fmt(stats.totalRevenue), icon: DollarSign, color: '#10b981' },
     { title: 'طلبات قيد الانتظار', value: stats.pendingOrders, icon: TrendingUp, color: '#ef4444' },
     { title: 'الأطباق النشطة', value: stats.activeItems, icon: Users, color: '#3b82f6' },
   ];

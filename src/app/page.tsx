@@ -231,10 +231,10 @@ export default function Home() {
                       <h3 className="text-lg mb-1">{offer.title_ar}</h3>
                       <div className="flex gap-2 items-center flex-wrap">
                         <span className="line-through text-[var(--text-muted)] text-sm">
-                          {offer.items?.item_prices?.[0]?.original_price} ريال
+                          {offer.items?.item_prices?.[0]?.original_price} {currency}
                         </span>
                         <span className="neon-text text-xl font-extrabold">
-                          {getDiscountedPrice(offer.items?.item_prices?.[0]?.original_price, offer.discount_percent)} ريال
+                          {getDiscountedPrice(offer.items?.item_prices?.[0]?.original_price, offer.discount_percent)} {currency}
                         </span>
                       </div>
                       <span className="inline-block mt-2 bg-[var(--maroon)] text-white px-2.5 py-1 rounded-md text-xs font-bold">

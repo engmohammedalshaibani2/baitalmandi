@@ -26,6 +26,10 @@ export const SIDEBAR_LINKS: { href: string; label: string; icon: string; roles: 
   { href: '/admin/settings', label: 'الإعدادات', icon: 'Settings', roles: ['developer', 'manager'] },
 ]
 
+export function isDeveloper(role: AdminRole | null | undefined): boolean {
+  return role === 'developer';
+}
+
 export function canAccessPage(role: AdminRole | null | undefined, pathname: string): boolean {
   if (!role) return false
 

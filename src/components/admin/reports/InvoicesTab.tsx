@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useSettings } from '@/lib/settings-context';
 import { supabase } from '@/lib/supabase';
 import { Printer } from 'lucide-react';
 import { generateReceiptHtml } from '@/components/invoice/receipt-html';
@@ -10,6 +11,8 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export default function InvoicesTab({ startDate, endDate, status, payment, search }: { startDate: string, endDate: string, status: string, payment: string, search: string }) {
+  const { settings } = useSettings();
+  const currency = settings['currency'] || 'ريال';
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -105,7 +108,7 @@ export default function InvoicesTab({ startDate, endDate, status, payment, searc
                   </span>
                 </td>
                 <td className="p-4">{order.payment_method === 'cash' ? 'نقداً' : order.payment_method === 'wallet' ? 'محفظة' : 'تحويل بنكي'}</td>
-                <td className="p-4 font-bold text-[var(--gold)]">{order.total_amount} ريال</td>
+                <td className="p-4 font-bold text-[var(--gold)]">{order.total_amount} {currency}</td>
                 <td className="p-4">
                   <button onClick={() => printInvoice(order)} className="btn-secondary text-sm py-1.5 px-3 flex items-center gap-1.5">
                     <Printer size={14} /> طباعة

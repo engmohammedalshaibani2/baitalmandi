@@ -1,7 +1,10 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useSettings } from '@/lib/settings-context';
 
 export default function OrdersTab({ startDate, endDate, status, payment, search }: { startDate: string, endDate: string, status: string, payment: string, search: string }) {
+  const { settings } = useSettings();
+  const currency = settings['currency'] || 'ريال';
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -68,13 +71,13 @@ export default function OrdersTab({ startDate, endDate, status, payment, search 
                         </div>
                         <div className="flex flex-col items-end gap-1">
                           <span className="bg-[var(--glass-bg)] px-2 py-0.5 rounded text-[10px]">الكمية: {item.quantity}</span>
-                          <span className="text-[var(--gold)] font-medium">{Number(item.totalPrice).toFixed(2)} ريال</span>
+                          <span className="text-[var(--gold)] font-medium">{Number(item.totalPrice).toFixed(2)} {currency}</span>
                         </div>
                       </li>
                     ))}
                   </ul>
                 </td>
-                <td className="p-4 font-bold text-[var(--gold)]">{Number(order.totalAmount).toFixed(2)} ريال</td>
+                <td className="p-4 font-bold text-[var(--gold)]">{Number(order.totalAmount).toFixed(2)} {currency}</td>
               </tr>
             ))}
             {data.data?.length === 0 && (

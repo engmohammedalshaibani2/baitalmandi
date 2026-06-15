@@ -4,6 +4,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { calculateOfferPrice, resolveItemPrice, offerTypeLabel } from '@/lib/offer-pricing';
 import { Plus, Edit2, Trash2, Save, X, Tag } from 'lucide-react';
+import { useSettings } from '@/lib/settings-context';
 
 const OFFER_TYPES = ['fixed_price', 'percentage_discount', 'amount_discount', 'free_item'] as const;
 
@@ -14,6 +15,8 @@ interface BundleRow {
 }
 
 export default function AdminOffersPage() {
+  const { settings } = useSettings();
+  const currency = settings['currency'] || 'ريال';
   const [offers, setOffers] = useState<any[]>([]);
   const [menuItems, setMenuItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -303,7 +306,7 @@ export default function AdminOffersPage() {
                                 • {oi.menu_item?.name_ar || '—'} 
                                 {oi.variant_name ? ` (${oi.variant_name})` : ''} 
                                 × {oi.quantity}
-                                {oi.unit_price ? ` = ${Number(oi.unit_price) * oi.quantity} ريال` : ''}
+                                {oi.unit_price ? ` = ${Number(oi.unit_price) * oi.quantity} ${currency}` : ''}
                               </div>
                             ))}
                           </div>
@@ -390,15 +393,15 @@ export default function AdminOffersPage() {
                             onChange={e => updateBundleRow(idx, 'priceId', e.target.value)}
                             style={{ flex: 1, fontSize: '0.85rem' }}
                           >
-                            <option value="">أفضل سعر تلقائي ({rowPrice} ريال)</option>
+                            <option value="">أفضل سعر تلقائي ({rowPrice} {currency})</option>
                             {prices.map((p: any) => (
                               <option key={p.id} value={p.id}>
-                                {p.size_label_ar} — {Number(p.sale_price || p.original_price)} ريال
+                                {p.size_label_ar} — {Number(p.sale_price || p.original_price)} {currency}
                                 {p.sale_price ? ` (كان ${p.original_price})` : ''}
                               </option>
                             ))}
                           </select>
-                          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{rowPrice} ريال</span>
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{rowPrice} {currency}</span>
                         </div>
                       )}
                     </div>
@@ -440,15 +443,15 @@ export default function AdminOffersPage() {
               <div style={{ background: 'var(--glass-bg)', borderRadius: '10px', padding: '12px', fontSize: '0.85rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', color: 'var(--text-secondary)' }}>
                   <span>السعر الأصلي</span>
-                  <span style={{ textDecoration: 'line-through', color: 'var(--text-muted)' }}>{bundlePricing.originalPrice} ريال</span>
+                  <span style={{ textDecoration: 'line-through', color: 'var(--text-muted)' }}>{bundlePricing.originalPrice} {currency}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', color: '#10b981' }}>
                   <span>الخصم</span>
-                  <span>-{bundlePricing.discountAmount} ريال ({bundlePricing.discountPercent}%)</span>
+                  <span>-{bundlePricing.discountAmount} {currency} ({bundlePricing.discountPercent}%)</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 900, color: 'var(--gold)', fontSize: '1rem', borderTop: '1px solid var(--border)', paddingTop: '6px', marginTop: '4px' }}>
                   <span>السعر النهائي</span>
-                  <span>{bundlePricing.finalPrice} ريال</span>
+                  <span>{bundlePricing.finalPrice} {currency}</span>
                 </div>
               </div>
             )}

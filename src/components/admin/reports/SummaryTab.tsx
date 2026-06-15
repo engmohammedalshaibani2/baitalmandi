@@ -1,11 +1,14 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useSettings } from '@/lib/settings-context';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 
 const COLORS = ['#d4af37', '#8b5cf6', '#3b82f6'];
 const dayNames = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 
 export default function SummaryTab({ currentStart, currentEnd, prevStart, prevEnd, status, payment, search }: any) {
+  const { settings } = useSettings();
+  const currency = settings['currency'] || 'ريال';
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -58,8 +61,8 @@ export default function SummaryTab({ currentStart, currentEnd, prevStart, prevEn
             <tbody className="divide-y divide-[var(--border)]">
               <tr className="hover:bg-[var(--glass-bg)]">
                 <td className="p-4 font-medium">إجمالي المبيعات</td>
-                <td className="p-4 font-bold">{Number(data.currentSummary?.sales || 0).toFixed(2)} ريال</td>
-                <td className="p-4">{Number(data.previousSummary?.sales || 0).toFixed(2)} ريال</td>
+                <td className="p-4 font-bold">{Number(data.currentSummary?.sales || 0).toFixed(2)} {currency}</td>
+                <td className="p-4">{Number(data.previousSummary?.sales || 0).toFixed(2)} {currency}</td>
                 <td className="p-4 font-bold" dir="ltr">
                   <span className={Number(data.salesGrowth ?? 0) > 0 ? 'text-emerald-500' : Number(data.salesGrowth ?? 0) < 0 ? 'text-red-500' : 'text-gray-400'}>
                     {Number(data.salesGrowth ?? 0) > 0 ? '+' : ''}{Number(data.salesGrowth ?? 0).toFixed(1)}%
@@ -78,8 +81,8 @@ export default function SummaryTab({ currentStart, currentEnd, prevStart, prevEn
               </tr>
               <tr className="hover:bg-[var(--glass-bg)]">
                 <td className="p-4 font-medium">متوسط قيمة الطلب (AOV)</td>
-                <td className="p-4 font-bold">{Number(data.currentSummary?.avgOrder || 0).toFixed(2)} ريال</td>
-                <td className="p-4">{Number(data.previousSummary?.avgOrder || 0).toFixed(2)} ريال</td>
+                <td className="p-4 font-bold">{Number(data.currentSummary?.avgOrder || 0).toFixed(2)} {currency}</td>
+                <td className="p-4">{Number(data.previousSummary?.avgOrder || 0).toFixed(2)} {currency}</td>
                 <td className="p-4 font-bold" dir="ltr">
                   <span className={Number(data.avgOrderGrowth ?? 0) > 0 ? 'text-emerald-500' : Number(data.avgOrderGrowth ?? 0) < 0 ? 'text-red-500' : 'text-gray-400'}>
                     {Number(data.avgOrderGrowth ?? 0) > 0 ? '+' : ''}{Number(data.avgOrderGrowth ?? 0).toFixed(1)}%

@@ -8,6 +8,7 @@ import { useSettings } from '@/lib/settings-context';
 import { createOrder, calculateDeliveryFeeServer } from '@/actions/orders';
 import { Trash2, Plus, Minus, ArrowRight, MessageCircle, CheckCircle, ShoppingBag, Copy, Wallet, MapPin, Crosshair } from 'lucide-react';
 import { getDeliveryRoute } from '@/lib/maps/getDeliveryRoute';
+import { validateYemeniPhone, validateFullName, validateDeliveryAddress } from '@/lib/validation';
 
 import 'leaflet/dist/leaflet.css';
 
@@ -26,6 +27,7 @@ export default function MyOrdersPage() {
   const router = useRouter();
   const { settings } = useSettings();
   const whatsappNumber = settings['whatsapp_order_number'] || settings['phone_delivery_whatsapp'] || '967779898617';
+  const minOrderAmount = parseInt(settings['min_order_amount']) || 0;
   const currency = settings['currency'] || 'ريال';
 
   let wallets: WalletItem[] = [];
@@ -40,8 +42,10 @@ export default function MyOrdersPage() {
 
   const [customerInfo, setCustomerInfo] = useState({ name: '', phone: '', address: '' });
   const [notes, setNotes] = useState('');
-  const [nameError, setNameError] = useState('');
-  const [addressError, setAddressError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const nameRef = useRef<HTMLInputElement>(null);
+  const phoneRef = useRef<HTMLInputElement>(null);
+  const addressRef = useRef<HTMLTextAreaElement>(null);
 
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'wallet' | 'transfer'>('cash');
   const [selectedWalletIdx, setSelectedWalletIdx] = useState<number | null>(null);
@@ -296,13 +300,29 @@ export default function MyOrdersPage() {
     } catch {}
   };
 
-  const validateAddress = (addr: string): boolean => {
-    const trimmed = addr.trim();
-    if (trimmed.length < 10) {
-      setAddressError('يرجى إدخال عنوان توصيل دقيق (10 أحرف على الأقل)');
+  const validateAll = (): boolean => {
+    setFieldErrors({});
+
+    const nameValid = validateFullName(customerInfo.name);
+    const phoneValid = validateYemeniPhone(customerInfo.phone);
+    const addrValid = validateDeliveryAddress(customerInfo.address);
+
+    const errors: Record<string, string> = {};
+    if (!nameValid.valid) errors.name = nameValid.error!;
+    if (!phoneValid.valid) errors.phone = phoneValid.error!;
+    if (!addrValid.valid) errors.address = addrValid.error!;
+
+    if (minOrderAmount > 0 && cartTotal < minOrderAmount) {
+      errors.minAmount = `الحد الأدنى للطلب هو ${minOrderAmount} ${currency}`;
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      const firstError = errors.address ? addressRef : errors.phone ? phoneRef : nameRef;
+      firstError.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      firstError.current?.focus();
       return false;
     }
-    setAddressError('');
     return true;
   };
 
@@ -311,7 +331,7 @@ export default function MyOrdersPage() {
       setLocationError('يرجى تحديد موقع التوصيل أولاً');
       return;
     }
-    if (!validateAddress(customerInfo.address)) {
+    if (!validateAll()) {
       return;
     }
 
@@ -367,10 +387,10 @@ export default function MyOrdersPage() {
       if (method === 'whatsapp') {
         let message = `🍽️ *طلب جديد من ${settings['restaurant_name'] || 'بيت المندي'}*\n\n`;
         cart.forEach((item, index) => {
-          message += `${index + 1}. ${item.name} × ${item.quantity} = *${item.price * item.quantity} ريال*\n`;
+          message += `${index + 1}. ${item.name} × ${item.quantity} = *${item.price * item.quantity} ${currency}*\n`;
         });
         message += `\n━━━━━━━━━━━━━━\n`;
-        message += `💰 *الإجمالي: ${cartTotal} ريال*\n\n`;
+        message += `💰 *الإجمالي: ${cartTotal} ${currency}*\n\n`;
         message += `👤 *الاسم:* ${customerInfo.name}\n`;
         message += `📞 *الهاتف:* ${customerInfo.phone}\n`;
         if (customerInfo.address.trim()) message += `📍 *العنوان:* ${customerInfo.address.trim()}\n`;
@@ -397,20 +417,12 @@ export default function MyOrdersPage() {
 
   const handleWebsiteSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const words = customerInfo.name.trim().split(/\s+/);
-    if (words.length < 2) { setNameError('يرجى إدخال الاسم الثنائي على الأقل'); return; }
-    if (!customerInfo.phone.trim()) return;
     if (!deliveryInfo) { setLocationError('يرجى تحديد موقع التوصيل أولاً'); return; }
-    setNameError('');
     createOrderAndRedirect('website');
   };
 
   const handleWhatsAppOrder = () => {
-    const words = customerInfo.name.trim().split(/\s+/);
-    if (words.length < 2) { setNameError('يرجى إدخال الاسم الثنائي على الأقل'); return; }
-    if (!customerInfo.phone.trim()) return;
     if (!deliveryInfo) { setLocationError('يرجى تحديد موقع التوصيل أولاً'); return; }
-    setNameError('');
     createOrderAndRedirect('whatsapp');
   };
 
@@ -468,12 +480,13 @@ export default function MyOrdersPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
                   <div>
                     <label style={{ display: 'block', marginBottom: '6px', color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 600 }}>الاسم الكامل *</label>
-                    <input type="text" className="form-input" value={customerInfo.name} onChange={e => setCustomerInfo({ ...customerInfo, name: e.target.value })} placeholder="الاسم الثنائي" required />
-                    {nameError && <p style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '4px' }}>{nameError}</p>}
+                    <input ref={nameRef} type="text" className={`form-input ${fieldErrors.name ? 'input-error' : ''}`} value={customerInfo.name} onChange={e => { setCustomerInfo({ ...customerInfo, name: e.target.value }); setFieldErrors(prev => ({ ...prev, name: '' })); }} placeholder="الاسم الثنائي" required />
+                    {fieldErrors.name && <p style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '4px' }}>{fieldErrors.name}</p>}
                   </div>
                   <div>
                     <label style={{ display: 'block', marginBottom: '6px', color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 600 }}>رقم الهاتف *</label>
-                    <input type="tel" className="form-input" value={customerInfo.phone} onChange={e => setCustomerInfo({ ...customerInfo, phone: e.target.value })} placeholder="77XXXXXXX" required style={{ direction: 'ltr', textAlign: 'right' }} />
+                    <input ref={phoneRef} type="tel" className={`form-input ${fieldErrors.phone ? 'input-error' : ''}`} value={customerInfo.phone} onChange={e => { setCustomerInfo({ ...customerInfo, phone: e.target.value }); setFieldErrors(prev => ({ ...prev, phone: '' })); }} placeholder="77XXXXXXX" required style={{ direction: 'ltr', textAlign: 'right' }} />
+                    {fieldErrors.phone && <p style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '4px' }}>{fieldErrors.phone}</p>}
                   </div>
 
                   <div style={{ gridColumn: '1 / -1' }}>
@@ -558,13 +571,14 @@ export default function MyOrdersPage() {
                       عنوان التوصيل *
                     </label>
                     <textarea
-                      className="form-input"
+                      ref={addressRef}
+                      className={`form-input ${fieldErrors.address ? 'input-error' : ''}`}
                       value={customerInfo.address}
-                      onChange={e => { setCustomerInfo({ ...customerInfo, address: e.target.value }); setAddressError(''); }}
+                      onChange={e => { setCustomerInfo({ ...customerInfo, address: e.target.value }); setFieldErrors(prev => ({ ...prev, address: '' })); }}
                       placeholder="مثال: شارع الزبيري، بجوار جامع الخير، الدور الثاني"
                       rows={2}
                     />
-                    {addressError && <p style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '4px' }}>{addressError}</p>}
+                    {fieldErrors.address && <p style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '4px' }}>{fieldErrors.address}</p>}
                     <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '2px', display: 'block' }}>
                       يمكنك تعديل العنوان المقترح أو كتابة عنوان دقيق (10 أحرف على الأقل)
                     </small>
@@ -575,6 +589,10 @@ export default function MyOrdersPage() {
                     <input type="text" className="form-input" value={notes} onChange={e => setNotes(e.target.value)} placeholder="مثال: لا أريد بصلاً" />
                   </div>
                 </div>
+
+                {fieldErrors.minAmount && (
+                  <p style={{ color: '#ef4444', fontSize: '0.82rem', marginTop: '4px', marginBottom: '10px', padding: '8px 12px', background: 'rgba(239,68,68,0.08)', borderRadius: '8px' }}>{fieldErrors.minAmount}</p>
+                )}
 
                 <div style={{ marginBottom: '20px' }}>
                   <label style={{ display: 'block', marginBottom: '10px', color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 600 }}>

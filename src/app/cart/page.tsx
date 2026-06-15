@@ -3,10 +3,11 @@
 import { useCartStore } from '@/store/cartStore';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useSettings } from '@/lib/settings-context';
 import { createOrder } from '@/actions/orders';
 import { Plus, Minus, Trash2, ArrowRight, ShoppingBasket, Copy, Wallet } from 'lucide-react';
+import { validateYemeniPhone, validateFullName, validateDeliveryAddress } from '@/lib/validation';
 
 interface WalletItem { name: string; number: string; active: boolean; }
 interface BankItem { name: string; account_number: string; account_holder: string; active: boolean; }
@@ -16,6 +17,7 @@ export default function CartPage() {
   const { settings } = useSettings();
   const whatsappNumber = settings['whatsapp_order_number'] || settings['phone_delivery_whatsapp'] || '967779898617';
   const deliveryFee = parseInt(settings['delivery_fee']) || 0;
+  const minOrderAmount = parseInt(settings['min_order_amount']) || 0;
   const currency = settings['currency'] || 'ريال';
 
   let wallets: WalletItem[] = [];
@@ -30,6 +32,10 @@ export default function CartPage() {
   const [loading, setLoading] = useState(false);
 
   const [customerInfo, setCustomerInfo] = useState({ name: '', phone: '', address: '' });
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const nameRef = useRef<HTMLInputElement>(null);
+  const phoneRef = useRef<HTMLInputElement>(null);
+  const addressRef = useRef<HTMLTextAreaElement>(null);
 
   // Payment
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'wallet' | 'transfer'>('cash');
@@ -60,7 +66,29 @@ export default function CartPage() {
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     if (cart.length === 0) return;
-    if (!customerInfo.name.trim() || !customerInfo.phone.trim()) return;
+    setFieldErrors({});
+
+    const nameValid = validateFullName(customerInfo.name);
+    const phoneValid = validateYemeniPhone(customerInfo.phone);
+    const addrValid = validateDeliveryAddress(customerInfo.address);
+
+    const errors: Record<string, string> = {};
+    if (!nameValid.valid) errors.name = nameValid.error!;
+    if (!phoneValid.valid) errors.phone = phoneValid.error!;
+    if (!addrValid.valid) errors.address = addrValid.error!;
+
+    if (minOrderAmount > 0 && cartTotal < minOrderAmount) {
+      errors.minAmount = `الحد الأدنى للطلب هو ${minOrderAmount} ${currency}`;
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      const firstError = errors.address ? addressRef : errors.phone ? phoneRef : nameRef;
+      firstError.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      firstError.current?.focus();
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -115,9 +143,9 @@ export default function CartPage() {
       let message = `مرحباً ${settings['restaurant_name'] || 'بيت المندي'}، أود طلب الآتي:\n\n`;
       message += `رقم الطلب: *${newOrder.order_number}*\n\n`;
       cart.forEach((item, index) => {
-        message += `${index + 1}. ${item.name} - العدد: ${item.quantity} (السعر: ${item.price * item.quantity} ريال)\n`;
+        message += `${index + 1}. ${item.name} - العدد: ${item.quantity} (السعر: ${item.price * item.quantity} ${currency})\n`;
       });
-      message += `\nالإجمالي: *${cartTotal} ريال*`;
+      message += `\nالإجمالي: *${cartTotal} ${currency}*`;
       message += `\n\nالاسم: ${customerInfo.name}`;
       message += `\nالهاتف: ${customerInfo.phone}`;
       if (customerInfo.address) message += `\nالعنوان: ${customerInfo.address}`;
@@ -216,16 +244,22 @@ export default function CartPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '24px' }}>
                 <div>
                   <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)' }}>الاسم الكامل *</label>
-                  <input required type="text" className="form-input" placeholder="محمد أحمد" value={customerInfo.name} onChange={e => setCustomerInfo({ ...customerInfo, name: e.target.value })} />
+                  <input ref={nameRef} required type="text" className={`form-input ${fieldErrors.name ? 'input-error' : ''}`} placeholder="محمد أحمد" value={customerInfo.name} onChange={e => { setCustomerInfo({ ...customerInfo, name: e.target.value }); setFieldErrors(prev => ({ ...prev, name: '' })); }} />
+                  {fieldErrors.name && <p style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '4px' }}>{fieldErrors.name}</p>}
                 </div>
                 <div>
                   <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)' }}>رقم الهاتف *</label>
-                  <input required type="tel" className="form-input" placeholder="77XXXXXXX" value={customerInfo.phone} onChange={e => setCustomerInfo({ ...customerInfo, phone: e.target.value })} style={{ direction: 'ltr', textAlign: 'right' }} />
+                  <input ref={phoneRef} required type="tel" className={`form-input ${fieldErrors.phone ? 'input-error' : ''}`} placeholder="77XXXXXXX" value={customerInfo.phone} onChange={e => { setCustomerInfo({ ...customerInfo, phone: e.target.value }); setFieldErrors(prev => ({ ...prev, phone: '' })); }} style={{ direction: 'ltr', textAlign: 'right' }} />
+                  {fieldErrors.phone && <p style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '4px' }}>{fieldErrors.phone}</p>}
                 </div>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)' }}>عنوان التوصيل</label>
-                  <textarea className="form-input" placeholder="المنطقة، الشارع، أقرب معلم..." value={customerInfo.address} onChange={e => setCustomerInfo({ ...customerInfo, address: e.target.value })} rows={2} />
+                  <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)' }}>عنوان التوصيل *</label>
+                  <textarea ref={addressRef} className={`form-input ${fieldErrors.address ? 'input-error' : ''}`} placeholder="المنطقة، الشارع، أقرب معلم..." value={customerInfo.address} onChange={e => { setCustomerInfo({ ...customerInfo, address: e.target.value }); setFieldErrors(prev => ({ ...prev, address: '' })); }} rows={2} />
+                  {fieldErrors.address && <p style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '4px' }}>{fieldErrors.address}</p>}
                 </div>
+                {fieldErrors.minAmount && (
+                  <p style={{ color: '#ef4444', fontSize: '0.82rem', marginTop: '4px', padding: '8px 12px', background: 'rgba(239,68,68,0.08)', borderRadius: '8px' }}>{fieldErrors.minAmount}</p>
+                )}
               </div>
 
               {/* Payment Method */}

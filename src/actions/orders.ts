@@ -5,6 +5,7 @@ import { calculateOfferPrice } from '@/lib/offer-pricing';
 import { isInsideSanaa, haversineDistance, MAX_DELIVERY_RADIUS_KM } from '@/lib/location-validation';
 import { calculateRoute, estimateRoadDistance, estimateDuration } from '@/lib/delivery-routing';
 import { calculateDeliveryFee, parseDeliverySettings } from '@/lib/delivery-pricing';
+import { validateYemeniPhone, normalizeYemeniPhone } from '@/lib/validation';
 
 async function generateOrderNumber(): Promise<string> {
   const supabase = await createClient();
@@ -116,6 +117,7 @@ async function fetchDeliverySettings(supabase: any): Promise<{
       'base_delivery_fee', 'included_distance_km', 'extra_fee_per_km',
       'enable_weather_fee', 'weather_fee',
       'enable_peak_hours', 'peak_start_time', 'peak_end_time', 'peak_percentage', 'peak_days',
+      'min_order_amount', 'currency',
     ]);
 
   const sMap: Record<string, string> = {};
@@ -169,6 +171,10 @@ export async function createOrder(input: CreateOrderInput) {
   if (!input.customer_phone?.trim()) {
     throw new Error('رقم هاتف العميل مطلوب');
   }
+  const phoneValidation = validateYemeniPhone(input.customer_phone);
+  if (!phoneValidation.valid) {
+    throw new Error(phoneValidation.error);
+  }
   if (!input.delivery_address?.trim() || input.delivery_address.trim().length < 10) {
     throw new Error('عنوان التوصيل مطلوب (10 أحرف على الأقل)');
   }
@@ -185,8 +191,10 @@ export async function createOrder(input: CreateOrderInput) {
   let extraDistanceKm = 0;
   let extraFeeAmount = 0;
 
-  // Resolve restaurant and fetch all settings
   const { settings: settingsMap, restLat, restLng } = await fetchDeliverySettings(supabase);
+
+  const minOrderAmount = parseFloat(settingsMap['min_order_amount']) || 0;
+  const currency = settingsMap['currency'] || 'ريال';
 
   if (input.delivery_lat && input.delivery_lng) {
     deliveryLat = input.delivery_lat;
@@ -320,11 +328,37 @@ export async function createOrder(input: CreateOrderInput) {
       items: bundleItems,
     });
 
-    validatedSubtotal = pricing.finalPrice;
+    const regularItemsTotal = input.items
+      .filter(item => item.category_name !== 'عروض')
+      .reduce((sum, item) => sum + item.total_price, 0);
+    validatedSubtotal = regularItemsTotal + pricing.finalPrice;
     validatedTotalAmount = validatedSubtotal + deliveryFeeNumeric;
+
+    console.log('[OFFER_ORDER_CALC]', JSON.stringify({
+      regularItemsTotal,
+      offerFinalPrice: pricing.finalPrice,
+      validatedSubtotal,
+      deliveryFee: deliveryFeeNumeric,
+      validatedTotalAmount,
+      regularItemCount: input.items.filter(i => i.category_name !== 'عروض').length,
+      offerItemCount: input.items.filter(i => i.category_name === 'عروض').length,
+    }));
   } else {
     validatedSubtotal = input.subtotal;
     validatedTotalAmount = validatedSubtotal + deliveryFeeNumeric;
+  }
+
+  if (minOrderAmount > 0 && validatedSubtotal < minOrderAmount) {
+    console.log('[MIN_ORDER_VALIDATION]', JSON.stringify({
+      orderTotal: validatedSubtotal,
+      minOrderAmount,
+      currency,
+      result: 'REJECTED',
+      customerName: input.customer_name,
+      customerPhone: input.customer_phone,
+      offerId: input.offer_id || null,
+    }));
+    throw new Error(`الحد الأدنى للطلب هو ${minOrderAmount} ${currency} ولا يمكن إنشاء طلب بأقل من ذلك`);
   }
 
   let cleanNotes = input.notes || '';

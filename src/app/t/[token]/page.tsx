@@ -361,7 +361,7 @@ function renderOrderCard(
                   {item.size_label && item.size_label !== 'عادي' && <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginRight: '6px' }}>({item.size_label})</span>}
                   <span style={{ color: 'var(--text-secondary)', marginRight: '6px' }}>× {item.quantity}</span>
                 </div>
-                <span style={{ fontWeight: 600 }}>{item.total_price} ريال</span>
+                <span style={{ fontWeight: 600 }}>{item.total_price} {currency}</span>
               </div>
             ))}
           </div>

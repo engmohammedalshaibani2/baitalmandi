@@ -1,7 +1,10 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useSettings } from '@/lib/settings-context';
 
 export default function ProductsTab({ startDate, endDate, status, payment, search }: { startDate: string, endDate: string, status: string, payment: string, search: string }) {
+  const { settings } = useSettings();
+  const currency = settings['currency'] || 'ريال';
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -38,7 +41,7 @@ export default function ProductsTab({ startDate, endDate, status, payment, searc
             {(data.top10Rev || []).map((item: any, i: number) => (
               <div key={i} className="flex justify-between items-center p-3 hover:bg-[var(--glass-bg)] rounded-lg transition-colors">
                 <span className="font-medium">{i+1}. {item.name}</span>
-                <span className="font-bold text-[var(--gold)]">{Number(item.revenue).toFixed(2)} ريال</span>
+                <span className="font-bold text-[var(--gold)]">{Number(item.revenue).toFixed(2)} {currency}</span>
               </div>
             ))}
           </div>
@@ -93,7 +96,7 @@ export default function ProductsTab({ startDate, endDate, status, payment, searc
                   <td className="p-4 font-medium">{cat.name}</td>
                   <td className="p-4">{cat.ordersCount}</td>
                   <td className="p-4">{cat.quantity}</td>
-                  <td className="p-4 font-bold text-[var(--gold)]">{Number(cat.revenue).toFixed(2)} ريال</td>
+                  <td className="p-4 font-bold text-[var(--gold)]">{Number(cat.revenue).toFixed(2)} {currency}</td>
                 </tr>
               ))}
             </tbody>

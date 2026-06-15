@@ -3,7 +3,11 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useSettings } from '@/lib/settings-context';
-import { Save, Settings, Phone, Clock, Truck, MessageCircle, Wallet, Banknote, Plus, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Save, Settings, Phone, Clock, Truck, MessageCircle, Wallet, Banknote, Plus, Trash2, ToggleLeft, ToggleRight, Shield } from 'lucide-react';
+import { updateDeveloperSettings } from '@/actions/settings';
+import { getCurrentAdmin } from '@/app/admin/orders/actions';
+import type { AdminRole } from '@/lib/permissions';
+import { isDeveloper } from '@/lib/permissions';
 
 interface SettingItem {
   key: string;
@@ -35,6 +39,8 @@ const DEFAULT_SETTINGS: SettingItem[] = [
   { key: 'min_order_amount', value: '30', description: 'الحد الأدنى للطلب (ريال)' },
   { key: 'whatsapp_order_number', value: '967779898617', description: 'رقم واتساب لاستقبال الطلبات' },
   { key: 'currency', value: 'ريال', description: 'العملة المستخدمة' },
+  { key: 'developer_company_name', value: 'Esnaad Tech', description: 'اسم الشركة المطورة' },
+  { key: 'developer_company_url', value: 'https://esnad-tech.com/', description: 'رابط الشركة المطورة' },
 ];
 
 export default function AdminSettingsPage() {
@@ -46,6 +52,15 @@ export default function AdminSettingsPage() {
 
   const [wallets, setWallets] = useState<WalletItem[]>([]);
   const [banks, setBanks] = useState<BankItem[]>([]);
+  const [adminRole, setAdminRole] = useState<AdminRole | null>(null);
+  const [devSaving, setDevSaving] = useState(false);
+  const [devMessage, setDevMessage] = useState('');
+
+  useEffect(() => {
+    getCurrentAdmin().then(data => {
+      if (data) setAdminRole(data.role);
+    });
+  }, []);
 
   useEffect(() => {
     if (!contextLoading) {
@@ -325,6 +340,69 @@ export default function AdminSettingsPage() {
             </button>
           </div>
         </div>
+
+        {/* ━━━━━ Developer Information (developer role only) ━━━━━ */}
+        {adminRole && isDeveloper(adminRole) && (
+          <div className="glass-panel" style={{ padding: '28px' }}>
+            <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1.2rem', marginBottom: '24px', paddingBottom: '12px', borderBottom: '1px solid var(--border)' }}>
+              <Shield size={20} color="var(--gold)" />
+              Developer Information
+            </h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+              <div>
+                <label style={inputStyle}>اسم الشركة المطورة</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={savedSettings['developer_company_name'] ?? 'Esnaad Tech'}
+                  onChange={e => handleChange('developer_company_name', e.target.value)}
+                />
+              </div>
+              <div>
+                <label style={inputStyle}>رابط الشركة</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={savedSettings['developer_company_url'] ?? 'https://esnad-tech.com/'}
+                  onChange={e => handleChange('developer_company_url', e.target.value)}
+                />
+              </div>
+            </div>
+            {devMessage && (
+              <p style={{
+                padding: '8px 16px', borderRadius: '8px', fontSize: '0.9rem', fontWeight: 600, marginTop: '16px',
+                background: devMessage.startsWith('✓') ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+                color: devMessage.startsWith('✓') ? '#10b981' : '#ef4444',
+              }}>
+                {devMessage}
+              </p>
+            )}
+            <button
+              onClick={async () => {
+                setDevSaving(true);
+                setDevMessage('');
+                try {
+                  await updateDeveloperSettings({
+                    developer_company_name: savedSettings['developer_company_name'] || 'Esnaad Tech',
+                    developer_company_url: savedSettings['developer_company_url'] || 'https://esnad-tech.com/',
+                  });
+                  setDevMessage('✓ تم حفظ إعدادات المطور');
+                  refresh();
+                } catch (err: any) {
+                  setDevMessage('⚠️ ' + (err?.message || 'حدث خطأ أثناء الحفظ'));
+                }
+                setDevSaving(false);
+                setTimeout(() => setDevMessage(''), 4000);
+              }}
+              className="btn-primary"
+              disabled={devSaving}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '20px' }}
+            >
+              <Save size={18} />
+              {devSaving ? 'جاري الحفظ...' : 'حفظ'}
+            </button>
+          </div>
+        )}
 
         {/* Danger Zone */}
         <div className="glass-panel" style={{ padding: '28px', border: '1px solid rgba(239,68,68,0.25)' }}>

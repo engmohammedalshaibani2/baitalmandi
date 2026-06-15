@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { Package, Clock, CheckCircle, Truck, XCircle, Eye, X, RefreshCw, UserCircle, Shield } from 'lucide-react';
 import { updateOrderStatus, cancelOrder, getCurrentAdmin } from './actions';
 import type { AdminRole } from '@/lib/permissions';
+import { useSettings } from '@/lib/settings-context';
 
 const STATUS_MAP: Record<string, { label: string; color: string; icon: any }> = {
   pending: { label: 'قيد الانتظار', color: '#f59e0b', icon: Clock },
@@ -34,6 +35,8 @@ interface Order {
 }
 
 export default function OrdersPage() {
+  const { settings } = useSettings();
+  const currency = settings['currency'] || 'ريال';
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -177,7 +180,7 @@ export default function OrdersPage() {
                   </p>
                 </div>
                 <div style={{ textAlign: 'left' }}>
-                  <p className="title-gold" style={{ fontSize: '1.3rem', fontWeight: 700 }}>{order.total_amount} ريال</p>
+                  <p className="title-gold" style={{ fontSize: '1.3rem', fontWeight: 700 }}>{order.total_amount} {currency}</p>
                   <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{order.items?.length || 0} عناصر</p>
                 </div>
               </div>
@@ -235,20 +238,20 @@ export default function OrdersPage() {
               {selectedOrder.items?.map((item: any, idx: number) => (
                 <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                   <span>{item.item_name} ({item.size_label}) × {item.quantity}</span>
-                  <span style={{ color: 'var(--gold)' }}>{item.total_price} ريال</span>
+                  <span style={{ color: 'var(--gold)' }}>{item.total_price} {currency}</span>
                 </div>
               ))}
             </div>
 
             <div style={{ borderTop: '1px solid var(--border)', paddingTop: '15px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-                <span>المجموع الفرعي:</span><span>{selectedOrder.subtotal} ريال</span>
+                <span>المجموع الفرعي:</span><span>{selectedOrder.subtotal} {currency}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', color: 'var(--text-secondary)' }}>
-                <span>رسوم التوصيل:</span><span>{selectedOrder.delivery_fee} ريال</span>
+                <span>رسوم التوصيل:</span><span>{selectedOrder.delivery_fee} {currency}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.2rem', fontWeight: 700, marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--border)' }}>
-                <span>الإجمالي:</span><span className="title-gold">{selectedOrder.total_amount} ريال</span>
+                <span>الإجمالي:</span><span className="title-gold">{selectedOrder.total_amount} {currency}</span>
               </div>
             </div>
           </div>

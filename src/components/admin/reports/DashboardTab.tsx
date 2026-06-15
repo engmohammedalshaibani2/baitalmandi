@@ -1,7 +1,10 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useSettings } from '@/lib/settings-context';
 
 export default function DashboardTab({ startDate, endDate, status, payment, search }: { startDate: string, endDate: string, status: string, payment: string, search: string }) {
+  const { settings } = useSettings();
+  const currency = settings['currency'] || 'ريال';
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -22,7 +25,7 @@ export default function DashboardTab({ startDate, endDate, status, payment, sear
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="glass-card p-6 border-l-4 border-l-[#d4af37]">
           <p className="text-gray-400 text-sm mb-2">مبيعات الفترة</p>
-          <h3 className="text-3xl font-bold text-[var(--gold)]">{data.todaySales?.toFixed(2) || '0.00'} ريال</h3>
+          <h3 className="text-3xl font-bold text-[var(--gold)]">{data.todaySales?.toFixed(2) || '0.00'} {currency}</h3>
         </div>
         <div className="glass-card p-6 border-l-4 border-l-blue-500">
           <p className="text-gray-400 text-sm mb-2">عدد الطلبات</p>
@@ -52,7 +55,7 @@ export default function DashboardTab({ startDate, endDate, status, payment, sear
                 <tr key={o.id} className="hover:bg-[var(--glass-bg)] transition-colors">
                   <td className="p-4 font-mono">{o.orderNumber}</td>
                   <td className="p-4">{o.customerName}</td>
-                  <td className="p-4 font-bold">{Number(o.totalAmount).toFixed(2)} ريال</td>
+                  <td className="p-4 font-bold">{Number(o.totalAmount).toFixed(2)} {currency}</td>
                   <td className="p-4">
                     <span className={`px-3 py-1 rounded-full text-xs bg-[var(--gold-faint)] text-[var(--gold)]`}>{o.status}</span>
                   </td>

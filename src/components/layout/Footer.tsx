@@ -14,6 +14,8 @@ export default function Footer() {
   const phoneDeliveryWhatsapp = settings['phone_delivery_whatsapp'] || '967779898617';
   const phoneDeliveryCall = settings['phone_delivery_call'] || '967775577200';
   const workingHours = settings['working_hours'] || 'يومياً من 11:00 صباحاً حتى 12:00 منتصف الليل';
+  const developerName = settings['developer_company_name'] || 'Esnaad Tech';
+  const developerUrl = settings['developer_company_url'] || 'https://esnad-tech.com/';
   const whatsappDisplay = phoneDeliveryWhatsapp.replace(/^967/, '');
   return (
     <footer className="plum-heritage-gradient" style={{
@@ -183,11 +185,17 @@ export default function Footer() {
           gap: '12px',
         }}>
           <p style={{ color: 'rgba(244, 239, 230, 0.65)', fontSize: '0.95rem' }}>
-            © {new Date().getFullYear()} مطعم {name} — جميع الحقوق محفوظة
+            صنــعاء، اليــمن
           </p>
-          <p style={{ color: 'rgba(244, 239, 230, 0.65)', fontSize: '0.95rem' }}>
-            صنعاء، اليمن 🇾🇪
-          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+            <p style={{ color: 'rgba(244, 239, 230, 0.65)', fontSize: '0.95rem', margin: 0, whiteSpace: 'nowrap' }}>
+              &copy; {new Date().getFullYear()} مطـعم بيـت المــنــدي
+            </p>
+            <p style={{ color: 'rgba(244, 239, 230, 0.5)', fontSize: '0.82rem', margin: 0, direction: 'ltr' }}>
+              Developed by <a href={developerUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--gold)', textDecoration: 'none', fontWeight: 600 }}>{developerName}</a>
+            </p>
+          </div>
+          <div />
         </div>
       </div>
     </footer>

@@ -10,6 +10,7 @@ export default function DashboardTab({ startDate, endDate, status, payment, sear
     fetch(`/api/reports/dashboard?startDate=${startDate}&endDate=${endDate}&status=${status}&payment=${payment}&search=${encodeURIComponent(search || '')}`)
       .then(res => res.json())
       .then(setData)
+      .catch(err => { console.error('[DashboardTab] Fetch error:', err); setData({ todaySales: 0, todayOrders: 0, activeOrders: 0, lastOrders: [] }); })
       .finally(() => setLoading(false));
   }, [startDate, endDate, status, payment, search]);
 

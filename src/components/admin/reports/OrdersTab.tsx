@@ -11,6 +11,7 @@ export default function OrdersTab({ startDate, endDate, status, payment, search 
     fetch(`/api/reports/orders?startDate=${startDate}&endDate=${endDate}&page=${page}&limit=50&status=${status}&payment=${payment}&search=${encodeURIComponent(search || '')}`)
       .then(res => res.json())
       .then(setData)
+      .catch(err => { console.error('[OrdersTab] Fetch error:', err); setData({ data: [], total: 0, page: 1, totalPages: 0 }); })
       .finally(() => setLoading(false));
   }, [startDate, endDate, page, status, payment, search]);
 

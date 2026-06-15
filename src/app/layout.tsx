@@ -1,29 +1,10 @@
 import type { Metadata, Viewport } from 'next';
-import { Cairo, Tajawal, Montserrat } from 'next/font/google';
 import './globals.css';
+import 'leaflet/dist/leaflet.css';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import LoadingScreen from '@/components/layout/LoadingScreen';
-
-/* ── Google Fonts ── */
-const cairo = Cairo({
-  subsets: ['arabic'],
-  weight: ['300', '400', '500', '600', '700', '800', '900'],
-  variable: '--font-cairo',
-  display: 'swap',
-});
-const tajawal = Tajawal({
-  subsets: ['arabic'],
-  weight: ['300', '400', '500', '700', '800', '900'],
-  variable: '--font-tajawal',
-  display: 'swap',
-});
-const montserrat = Montserrat({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-montserrat',
-  display: 'swap',
-});
+import { SettingsProvider } from '@/lib/settings-context';
 
 /* ── SEO Metadata ── */
 export const metadata: Metadata = {
@@ -73,21 +54,21 @@ const themeScript = `
 `;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const fontVars = [cairo.variable, tajawal.variable, montserrat.variable].join(' ');
-
   return (
-    <html lang="ar" dir="rtl" className={fontVars} suppressHydrationWarning>
+    <html lang="ar" dir="rtl" suppressHydrationWarning>
       <head>
         {/* Blocking theme script — runs before CSS paint, eliminates flash */}
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body suppressHydrationWarning style={{ paddingTop: '72px', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-        <LoadingScreen />
-        <Navbar />
-        <main style={{ flex: 1 }}>
-          {children}
-        </main>
-        <Footer />
+        <SettingsProvider>
+          <LoadingScreen />
+          <Navbar />
+          <main style={{ flex: 1 }}>
+            {children}
+          </main>
+          <Footer />
+        </SettingsProvider>
       </body>
     </html>
   );

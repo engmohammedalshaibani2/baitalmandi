@@ -1,3 +1,7 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap') layer(fonts);
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap') layer(fonts);
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap') layer(fonts);
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -34,6 +38,11 @@
   --cream-light:    #FAF8F5;
   --dark-brown:     #3A2318;
   --dark-brown-2:   #2C1E16;
+
+  /* Font families */
+  --font-cairo:      'Cairo', 'Tajawal', sans-serif;
+  --font-tajawal:    'Tajawal', 'Cairo', sans-serif;
+  --font-montserrat: 'Montserrat', sans-serif;
 
   /* Spacing & shape */
   --radius-sm:      8px;
@@ -218,7 +227,7 @@ button { font-family: inherit; }
   cursor: pointer;
   letter-spacing: 0.02em;
   transition: all var(--transition);
-  box-shadow: 0 4px 20px rgba(116, 19, 58, 0.30), inset 0 1px 0 rgba(255,255,255,0.12);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
   position: relative;
   overflow: hidden;
 }
@@ -243,7 +252,7 @@ button { font-family: inherit; }
   color: #F4EFE6;
   border-color: var(--gold);
   transform: translateY(-2px);
-  box-shadow: 0 8px 28px rgba(116, 19, 58, 0.40), 0 0 0 1px var(--gold-dark);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 0 0 1px var(--gold-dark);
 }
 .btn-primary:active:not(:disabled) { transform: translateY(0); }
 .btn-primary:disabled {
@@ -321,13 +330,13 @@ html[data-theme='dark'] .btn-secondary:hover,
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.1);
   transition: all var(--transition);
 }
 .glass-card:hover {
   border-color: var(--border-hover);
   transform: translateY(-3px);
-  box-shadow: var(--shadow-card), var(--shadow-glow);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
 }
 
 /* =============================================
@@ -340,10 +349,6 @@ html[data-theme='dark'] .btn-secondary:hover,
 
 .neon-text {
   color: var(--gold-light);
-  text-shadow:
-    0 0 8px var(--glow),
-    0 0 20px rgba(197, 155, 95, 0.45),
-    0 0 40px rgba(197, 155, 95, 0.22);
 }
 
 .section-title {
@@ -383,7 +388,8 @@ html[data-theme='dark'] .btn-secondary:hover,
 .form-input:focus {
   border-color: var(--plum);
   background: rgba(116, 19, 58, 0.04);
-  box-shadow: 0 0 0 3px rgba(116, 19, 58, 0.10);
+  outline: 2px solid rgba(116, 19, 58, 0.15);
+  outline-offset: -2px;
 }
 
 /* =============================================
@@ -441,7 +447,7 @@ html[data-theme='dark'] .btn-secondary:hover,
   z-index: 1;
 }
 .navbar.scrolled {
-  box-shadow: 0 4px 24px rgba(116, 19, 58, 0.35);
+  box-shadow: 0 2px 12px rgba(116, 19, 58, 0.20);
   border-bottom-color: rgba(197, 155, 95, 0.35);
 }
 .navbar .container {

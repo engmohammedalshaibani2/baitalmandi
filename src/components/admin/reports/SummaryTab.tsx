@@ -14,6 +14,7 @@ export default function SummaryTab({ currentStart, currentEnd, prevStart, prevEn
     fetch(`/api/reports/compare?currStart=${currentStart}&currEnd=${currentEnd}&prevStart=${prevStart}&prevEnd=${prevEnd}&status=${status}&payment=${payment}&search=${encodeURIComponent(search || '')}`)
       .then(res => res.json())
       .then(setData)
+      .catch(err => { console.error('[SummaryTab] Fetch error:', err); setData({ currentSummary: { sales: 0, count: 0, avgOrder: 0 }, previousSummary: { sales: 0, count: 0, avgOrder: 0 }, salesGrowth: 0, ordersGrowth: 0, avgOrderGrowth: 0, payments: [], hourly: [], daily: [] }); })
       .finally(() => setLoading(false));
   }, [currentStart, currentEnd, prevStart, prevEnd, status, payment, search]);
 

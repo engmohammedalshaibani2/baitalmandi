@@ -1,29 +1,41 @@
 'use client';
 import { useState, useMemo, useEffect } from 'react';
-import { Activity, TrendingUp, ShoppingBag, Users, Box, Download, Printer, FileSpreadsheet, Filter } from 'lucide-react';
+import { Activity, TrendingUp, ShoppingBag, Users, Box, Download, Printer, FileSpreadsheet, Filter, Tag, Truck } from 'lucide-react';
 import QRCode from 'qrcode';
 import { printReport } from '@/lib/printReport';
 import { exportExcelReport } from '@/lib/exportExcel';
+import { supabase } from '@/lib/supabase';
 
 import DashboardTab from '@/components/admin/reports/DashboardTab';
 import OrdersTab from '@/components/admin/reports/OrdersTab';
 import ProductsTab from '@/components/admin/reports/ProductsTab';
 import SummaryTab from '@/components/admin/reports/SummaryTab';
 import CustomersTab from '@/components/admin/reports/CustomersTab';
+import InvoicesTab from '@/components/admin/reports/InvoicesTab';
+import AuditLogsTab from '@/components/admin/reports/AuditLogsTab';
+import OffersTab from '@/components/admin/reports/OffersTab';
+import DeliveryAnalyticsTab from '@/components/admin/reports/DeliveryAnalyticsTab';
 
 type ReportPeriod = 'today' | 'this_week' | 'this_month' | 'custom';
-type ReportTab = 'dashboard' | 'orders' | 'products' | 'customers' | 'summary';
+type ReportTab = 'dashboard' | 'orders' | 'products' | 'customers' | 'summary' | 'offers' | 'invoices' | 'audit' | 'delivery';
 
 export default function ReportsPage() {
   const [period, setPeriod] = useState<ReportPeriod>('today');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [activeTab, setActiveTab] = useState<ReportTab>('dashboard');
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState('');
+  const [adminName, setAdminName] = useState('مدير النظام');
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       QRCode.toDataURL(window.location.href).then(setQrCodeDataUrl).catch(console.error);
     }
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      supabase.from('admin_users').select('full_name').eq('auth_user_id', user.id).maybeSingle().then(({ data }) => {
+        if (data?.full_name) setAdminName(data.full_name);
+      });
+    });
   }, []);
   
   // Additional Filters
@@ -90,7 +102,7 @@ export default function ReportsPage() {
   const handleExportPDF = async () => {
     setIsExporting(true);
     try {
-      await printReport({ activeTab, currentStart, currentEnd, prevStart, prevEnd, statusFilter, paymentFilter, searchQuery, qrCodeDataUrl });
+      await printReport({ activeTab, currentStart, currentEnd, prevStart, prevEnd, statusFilter, paymentFilter, searchQuery, qrCodeDataUrl, adminName });
     } finally {
       setIsExporting(false);
     }
@@ -206,6 +218,10 @@ export default function ReportsPage() {
           { id: 'products', label: 'الأطباق والأصناف', icon: Box },
           { id: 'customers', label: 'العملاء', icon: Users },
           { id: 'summary', label: 'مقارنة ونمو المبيعات', icon: TrendingUp },
+          { id: 'offers', label: 'العروض والباقات', icon: Tag },
+          { id: 'invoices', label: 'فواتير الزبائن', icon: Printer },
+          { id: 'audit', label: 'سجلات التدقيق', icon: Activity },
+          { id: 'delivery', label: 'تحليلات التوصيل', icon: Truck },
         ].map(tab => {
           const Icon = tab.icon;
           return (
@@ -249,6 +265,22 @@ export default function ReportsPage() {
         <div className={`${activeTab === 'customers' ? 'block' : 'hidden'} ${activeTab === 'dashboard' || activeTab === 'customers' ? 'print:block' : 'print:hidden'} print:break-inside-avoid print:mb-10`}>
           {activeTab === 'dashboard' && <h2 className="hidden print:block text-2xl font-bold mt-8 mb-4 text-[#d4af37] border-b pb-2">تحليل العملاء</h2>}
           <CustomersTab startDate={currentStart} endDate={currentEnd} status={statusFilter} payment={paymentFilter} search={searchQuery} />
+        </div>
+
+        <div className={`${activeTab === 'offers' ? 'block' : 'hidden'} print:break-inside-avoid print:mb-10`}>
+          <OffersTab startDate={currentStart} endDate={currentEnd} status={statusFilter} payment={paymentFilter} search={searchQuery} />
+        </div>
+
+        <div className={`${activeTab === 'invoices' ? 'block' : 'hidden'} print:break-inside-avoid print:mb-10`}>
+          <InvoicesTab startDate={currentStart} endDate={currentEnd} status={statusFilter} payment={paymentFilter} search={searchQuery} />
+        </div>
+
+        <div className={`${activeTab === 'audit' ? 'block' : 'hidden'} print:break-inside-avoid print:mb-10`}>
+          <AuditLogsTab startDate={currentStart} endDate={currentEnd} status={statusFilter} payment={paymentFilter} search={searchQuery} />
+        </div>
+
+        <div className={`${activeTab === 'delivery' ? 'block' : 'hidden'} print:break-inside-avoid print:mb-10`}>
+          <DeliveryAnalyticsTab startDate={currentStart} endDate={currentEnd} status={statusFilter} payment={paymentFilter} search={searchQuery} />
         </div>
       </div>
 

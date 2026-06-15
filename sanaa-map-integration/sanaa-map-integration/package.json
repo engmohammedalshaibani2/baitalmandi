@@ -1,0 +1,28 @@
+{
+  "name": "sanaa-map-viewer",
+  "version": "1.0.0",
+  "description": "خريطة صنعاء التفاعلية - Sana'a Interactive Map",
+  "main": "index.js",
+  "scripts": {
+    "start": "python3 -m http.server 8000",
+    "dev": "python3 -m http.server 8000",
+    "serve": "npx http-server"
+  },
+  "keywords": [
+    "sanaa",
+    "map",
+    "geojson",
+    "leaflet",
+    "yemen",
+    "خريطة",
+    "صنعاء"
+  ],
+  "author": "Manus Team",
+  "license": "ODbL",
+  "dependencies": {
+    "leaflet": "^1.9.4"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+}

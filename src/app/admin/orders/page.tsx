@@ -2,7 +2,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Package, Clock, CheckCircle, Truck, XCircle, Eye, X, RefreshCw } from 'lucide-react';
+import { Package, Clock, CheckCircle, Truck, XCircle, Eye, X, RefreshCw, UserCircle, Shield } from 'lucide-react';
+import { updateOrderStatus, cancelOrder, getCurrentAdmin } from './actions';
+import type { AdminRole } from '@/lib/permissions';
 
 const STATUS_MAP: Record<string, { label: string; color: string; icon: any }> = {
   pending: { label: 'قيد الانتظار', color: '#f59e0b', icon: Clock },
@@ -37,6 +39,13 @@ export default function OrdersPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [adminInfo, setAdminInfo] = useState<{ full_name: string; role: AdminRole } | null>(null);
+
+  useEffect(() => {
+    getCurrentAdmin().then(data => {
+      if (data) setAdminInfo(data)
+    })
+  }, []);
 
   const fetchOrders = async () => {
     let query = supabase
@@ -66,34 +75,27 @@ export default function OrdersPage() {
     return () => { supabase.removeChannel(channel); };
   }, [statusFilter]);
 
-  const updateStatus = async (orderId: string, newStatus: string, currentVersion: number) => {
+  const handleUpdateStatus = async (orderId: string, newStatus: string, currentVersion: number) => {
     setUpdatingId(orderId);
-    const { error } = await supabase
-      .from('orders')
-      .update({ status: newStatus, version: currentVersion + 1, updated_at: new Date().toISOString() })
-      .eq('id', orderId)
-      .eq('version', currentVersion);
-
-    if (error) {
-      alert('حدث خطأ أثناء التحديث. قد يكون الطلب قد تم تعديله من شخص آخر.');
-    } else {
-      // Log status change
-      const order = orders.find(o => o.id === orderId);
-      await supabase.from('order_status_history').insert({ order_id: orderId, old_status: order?.status, new_status: newStatus });
-      await supabase.from('audit_logs').insert({
-        entity_id: orderId,
-        entity_type: 'order',
-        action: newStatus === 'cancelled' ? 'cancel' : 'status_change',
-        details: `تغيير الحالة إلى ${STATUS_MAP[newStatus]?.label}`
-      });
+    try {
+      const result = await updateOrderStatus(orderId, newStatus, currentVersion);
+      if (result.success) fetchOrders();
+    } catch (err: any) {
+      alert(err.message || 'حدث خطأ أثناء التحديث');
     }
     setUpdatingId(null);
-    fetchOrders();
   };
 
-  const cancelOrder = async (orderId: string, currentVersion: number) => {
+  const handleCancelOrder = async (orderId: string, currentVersion: number) => {
     if (!confirm('هل أنت متأكد من إلغاء هذا الطلب؟')) return;
-    await updateStatus(orderId, 'cancelled', currentVersion);
+    setUpdatingId(orderId);
+    try {
+      const result = await cancelOrder(orderId, currentVersion);
+      if (result.success) fetchOrders();
+    } catch (err: any) {
+      alert(err.message || 'حدث خطأ أثناء الإلغاء');
+    }
+    setUpdatingId(null);
   };
 
   const getNextStatus = (current: string): string | null => {
@@ -107,6 +109,12 @@ export default function OrdersPage() {
     return d.toLocaleDateString('ar-EG', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   };
 
+  const roleLabels: Record<string, string> = {
+    developer: 'مطور',
+    manager: 'مدير',
+    order_manager: 'مدير طلبات',
+  };
+
   if (loading) return <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>جاري التحميل...</div>;
 
   return (
@@ -116,9 +124,22 @@ export default function OrdersPage() {
           <h1 className="title-gold" style={{ fontSize: '2rem', marginBottom: '5px' }}>إدارة الطلبات</h1>
           <p style={{ color: 'var(--text-secondary)' }}>{orders.length} طلب</p>
         </div>
-        <button className="btn-secondary" onClick={fetchOrders} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <RefreshCw size={18} /> تحديث
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {adminInfo && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 14px', borderRadius: '10px', background: 'rgba(212,175,55,0.05)', border: '1px solid rgba(212,175,55,0.1)' }}>
+              <UserCircle size={20} color="var(--gold)" />
+              <div style={{ textAlign: 'right' }}>
+                <p style={{ fontWeight: 700, fontSize: '0.85rem', lineHeight: 1.3 }}>{adminInfo.full_name}</p>
+                <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                  <Shield size={10} /> {roleLabels[adminInfo.role] || adminInfo.role}
+                </p>
+              </div>
+            </div>
+          )}
+          <button className="btn-secondary" onClick={fetchOrders} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <RefreshCw size={18} /> تحديث
+          </button>
+        </div>
       </div>
 
       {/* Status Filters */}
@@ -171,13 +192,13 @@ export default function OrdersPage() {
                     className="btn-primary"
                     style={{ padding: '6px 14px', fontSize: '0.85rem' }}
                     disabled={updatingId === order.id}
-                    onClick={() => updateStatus(order.id, nextStatus, order.version)}
+                    onClick={() => handleUpdateStatus(order.id, nextStatus, order.version)}
                   >
                     {updatingId === order.id ? 'جاري...' : `تحويل إلى: ${STATUS_MAP[nextStatus]?.label}`}
                   </button>
                 )}
                 {order.status !== 'cancelled' && order.status !== 'delivered' && (
-                  <button className="btn-danger" style={{ padding: '6px 14px', fontSize: '0.85rem' }} onClick={() => cancelOrder(order.id, order.version)}>
+                  <button className="btn-danger" style={{ padding: '6px 14px', fontSize: '0.85rem' }} onClick={() => handleCancelOrder(order.id, order.version)}>
                     <XCircle size={16} /> إلغاء
                   </button>
                 )}

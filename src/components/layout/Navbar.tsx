@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useCartStore } from '@/store/cartStore';
+import { useSettings } from '@/lib/settings-context';
 import { ShoppingCart, Moon, Sun, Monitor, Menu, X } from 'lucide-react';
 
 type Theme = 'light' | 'dark' | 'auto';
@@ -27,12 +28,14 @@ const NAV_LINKS = [
 
 export default function Navbar() {
   const pathname  = usePathname();
+  const { settings } = useSettings();
   const [theme,   setTheme]   = useState<Theme>('auto');
   const [isClient, setIsClient] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
   const cartTotal = useCartStore((s) => s.getTotalItems());
+  const restaurantName = settings['restaurant_name'] || 'بيت المندي';
 
   /* ── init ── */
   useEffect(() => {
@@ -76,9 +79,9 @@ export default function Navbar() {
       <nav className={`navbar${scrolled ? ' scrolled' : ''}`}>
         <div className="container">
           {/* ── Brand ── */}
-          <Link href="/" className="nav-brand" aria-label="بيت المندي - الرئيسية">
-            <Image src="/logo.jpg" alt="شعار بيت المندي" width={42} height={42} className="rounded-full shadow-md" style={{ border: '1px solid var(--gold)' }} />
-            <span className="nav-brand-text">بيت المندي</span>
+          <Link href="/" className="nav-brand" aria-label={`${restaurantName} - الرئيسية`}>
+            <Image src="/logo.jpg" alt={`شعار ${restaurantName}`} width={42} height={42} className="rounded-full shadow-md" style={{ border: '1px solid var(--gold)' }} />
+            <span className="nav-brand-text">{restaurantName}</span>
           </Link>
 
           {/* ── Desktop links ── */}

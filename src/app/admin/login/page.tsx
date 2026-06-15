@@ -39,14 +39,14 @@ export default function AdminLogin() {
   };
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--black)' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg)' }}>
       <div className="glass-panel" style={{ padding: '50px', width: '100%', maxWidth: '450px', textAlign: 'center' }}>
         <h1 className="title-gold" style={{ fontSize: '2rem', marginBottom: '10px' }}>لوحة التحكم</h1>
-        <p style={{ color: 'rgba(255,255,255,0.5)', marginBottom: '30px' }}>بيت المندي — منطقة خاصة بالمدير</p>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '30px' }}>بيت المندي — منطقة خاصة بالمدير</p>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px', textAlign: 'right' }}>
           <div>
-            <label style={{ display: 'block', marginBottom: '8px', color: 'rgba(255,255,255,0.8)' }}>البريد الإلكتروني</label>
+            <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-primary)' }}>البريد الإلكتروني</label>
             <input
               type="email"
               className="form-input"
@@ -58,7 +58,7 @@ export default function AdminLogin() {
             />
           </div>
           <div>
-            <label style={{ display: 'block', marginBottom: '8px', color: 'rgba(255,255,255,0.8)' }}>كلمة المرور</label>
+            <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-primary)' }}>كلمة المرور</label>
             <input
               type="password"
               className="form-input"

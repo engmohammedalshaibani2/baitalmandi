@@ -115,11 +115,12 @@ export async function exportExcelReport(params: {
 
   const qs = `startDate=${currentStart}&endDate=${currentEnd}&status=${statusFilter}&payment=${paymentFilter}&search=${encodeURIComponent(searchQuery)}`;
 
-  const [ordersRes, productsRes, customersRes, compareRes] = await Promise.all([
+  const [ordersRes, productsRes, customersRes, compareRes, deliveryRes] = await Promise.all([
     fetch(`/api/reports/orders?${qs}&limit=1000`).then(r => r.json()),
     fetch(`/api/reports/products?${qs}`).then(r => r.json()),
     fetch(`/api/reports/customers?${qs}`).then(r => r.json()),
     fetch(`/api/reports/compare?currStart=${currentStart}&currEnd=${currentEnd}&prevStart=${prevStart}&prevEnd=${prevEnd}&status=${statusFilter}&payment=${paymentFilter}&search=${encodeURIComponent(searchQuery)}`).then(r => r.json()),
+    fetch(`/api/reports/delivery-analytics?${qs}`).then(r => r.json()),
   ]);
 
   const wb = new ExcelJS.Workbook();
@@ -235,6 +236,52 @@ export async function exportExcelReport(params: {
     const pStart = wsS.rowCount + 1;
     pays.forEach((p: any) => wsS.addRow([xlPayment(p.method), Number(p.sales).toFixed(2), '', '']));
     stripeRows(wsS, pStart, wsS.rowCount, sHdrs.length);
+  }
+
+  // ════════════════════════════════
+  // Sheet 5: Delivery Analytics
+  // ════════════════════════════════
+  if (deliveryRes && deliveryRes.totalOrders > 0) {
+    const wsD = wb.addWorksheet('تحليلات التوصيل', { views: [{ rightToLeft: true }] });
+    const dWidths = [28, 18, 18];
+    const dHdrs   = ['المؤشر', 'القيمة', 'الملاحظات'];
+    dWidths.forEach((w, i) => { wsD.getColumn(i + 1).width = w; });
+    addHeader(wsD, 'تقرير تحليلات التوصيل', dHdrs.length, hdrOpts);
+    wsD.getRow(5).values = dHdrs;
+    styleColHdrRow(wsD, 5, dHdrs.length);
+
+    const metrics = [
+      ['عدد الطلبات', deliveryRes.totalOrders, ''],
+      ['إجمالي رسوم التوصيل', `${Number(deliveryRes.totalDeliveryFee).toLocaleString('ar-EG')} ﷼`, ''],
+      ['متوسط رسوم التوصيل', `${Number(deliveryRes.avgDeliveryFee).toLocaleString('ar-EG')} ﷼`, ''],
+      ['متوسط مسافة التوصيل', `${deliveryRes.avgDistanceKm} كم`, ''],
+      ['الرسوم الأساسية', `${Number(deliveryRes.totalBaseFee).toLocaleString('ar-EG')} ﷼`, ''],
+      ['رسوم المسافة الإضافية', `${Number(deliveryRes.totalExtraFee).toLocaleString('ar-EG')} ﷼`, ''],
+      ['رسوم الطقس', `${Number(deliveryRes.totalWeatherFee).toLocaleString('ar-EG')} ﷼`, `${deliveryRes.ordersWithWeatherFee} طلب`],
+      ['رسوم الذروة', `${Number(deliveryRes.totalPeakFee).toLocaleString('ar-EG')} ﷼`, `${deliveryRes.ordersWithPeakFee} طلب، ${deliveryRes.avgPeakPercentage}%`],
+    ];
+    metrics.forEach(m => wsD.addRow(m));
+    stripeRows(wsD, 6, 5 + metrics.length, dHdrs.length);
+
+    const feeByDay = deliveryRes.feeByDay || [];
+    if (feeByDay.length > 0) {
+      addDivider(wsD, 'رسوم التوصيل حسب اليوم', dHdrs.length);
+      const dh = wsD.addRow(['اليوم', 'عدد الطلبات', 'إجمالي الرسوم']);
+      styleColHdrRow(wsD, dh.number, dHdrs.length);
+      const dStart = wsD.rowCount + 1;
+      feeByDay.forEach((r: any) => wsD.addRow([r.day, r.orders, `${Number(r.totalFee).toLocaleString('ar-EG')} ﷼`]));
+      stripeRows(wsD, dStart, wsD.rowCount, dHdrs.length);
+    }
+
+    const feeByDistanceRange = deliveryRes.feeByDistanceRange || [];
+    if (feeByDistanceRange.length > 0) {
+      addDivider(wsD, 'رسوم التوصيل حسب نطاق المسافة', dHdrs.length);
+      const dh = wsD.addRow(['نطاق المسافة', 'عدد الطلبات', 'إجمالي الرسوم']);
+      styleColHdrRow(wsD, dh.number, dHdrs.length);
+      const dStart = wsD.rowCount + 1;
+      feeByDistanceRange.forEach((r: any) => wsD.addRow([r.range, r.orders, `${Number(r.totalFee).toLocaleString('ar-EG')} ﷼`]));
+      stripeRows(wsD, dStart, wsD.rowCount, dHdrs.length);
+    }
   }
 
   // ── Download ──────────────────────────────

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useSettings } from '@/lib/settings-context';
 import { MapPin, Clock, Send, Star, CheckCircle } from 'lucide-react';
 
 // WhatsApp SVG Icon
@@ -19,6 +20,14 @@ const PhoneIcon = ({ size = 24 }: { size?: number }) => (
 );
 
 export default function ContactPage() {
+  const { settings } = useSettings();
+  const phoneReservations = settings['phone_reservations'] || '01/465888';
+  const phoneDeliveryWhatsapp = settings['phone_delivery_whatsapp'] || '967779898617';
+  const phoneDeliveryCall = settings['phone_delivery_call'] || '967775577200';
+  const addressMain = settings['address_main'] || 'صنعاء - نهاية شارع الرباط، بداية شارع الستين';
+  const workingHours = settings['working_hours'] || 'يومياً من 6:00 صباحاً حتى 12:00 منتصف الليل';
+  const whatsappDisplay = phoneDeliveryWhatsapp.replace(/^967/, '');
+  const deliveryCallDisplay = phoneDeliveryCall.replace(/^967/, '');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [rating, setRating] = useState(5);
@@ -32,15 +41,26 @@ export default function ContactPage() {
     if (!name.trim() || !comment.trim()) return;
     setSubmitting(true);
     try {
-      await supabase.from('reviews').insert([{
-        customer_name: name.trim(),
+      const { error } = await supabase.from('reviews').insert([{
+        reviewer_name: name.trim(),
         rating,
-        comment: comment.trim(),
+        comment_ar: comment.trim(),
         source,
-        is_approved: false,
+        is_featured: false,
       }]);
+
+      if (error) {
+        throw error;
+      }
+
       setSubmitted(true);
-    } catch {
+      setName('');
+      setPhone('');
+      setRating(5);
+      setComment('');
+      setSource('Website');
+    } catch (err) {
+      console.error('[Contact page] submit error', err);
       alert('حدث خطأ أثناء الإرسال، يرجى المحاولة لاحقاً.');
     } finally {
       setSubmitting(false);
@@ -68,7 +88,7 @@ export default function ContactPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
             {/* Booking Phone Card */}
-            <a href="tel:+96701465888" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <a href={`tel:+967${phoneReservations.replace(/[^0-9]/g, '')}`} style={{ textDecoration: 'none', color: 'inherit' }}>
               <div className="glass-card" style={{ padding: '22px', display: 'flex', gap: '16px', alignItems: 'center', cursor: 'pointer', transition: 'transform 0.2s' }}
                 onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
                 onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
@@ -78,14 +98,14 @@ export default function ContactPage() {
                 </div>
                 <div>
                   <h3 style={{ fontSize: '0.9rem', marginBottom: '4px', color: 'var(--text-secondary)' }}>للحجز والاستفسار</h3>
-                  <p style={{ fontWeight: 700, fontSize: '1.15rem', color: 'var(--gold)' }}>01/465888</p>
+                  <p style={{ fontWeight: 700, fontSize: '1.15rem', color: 'var(--gold)' }}>{phoneReservations}</p>
                   <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>اضغط للاتصال</p>
                 </div>
               </div>
             </a>
 
             {/* WhatsApp Delivery Card */}
-            <a href="https://wa.me/967779898617" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <a href={`https://wa.me/${phoneDeliveryWhatsapp}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit' }}>
               <div className="glass-card" style={{ padding: '22px', display: 'flex', gap: '16px', alignItems: 'center', cursor: 'pointer', transition: 'transform 0.2s' }}
                 onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
                 onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
@@ -95,14 +115,14 @@ export default function ContactPage() {
                 </div>
                 <div>
                   <h3 style={{ fontSize: '0.9rem', marginBottom: '4px', color: 'var(--text-secondary)' }}>واتساب التوصيل</h3>
-                  <p style={{ fontWeight: 700, fontSize: '1.15rem', color: '#25D366' }}>779898617</p>
+                  <p style={{ fontWeight: 700, fontSize: '1.15rem', color: '#25D366' }}>{whatsappDisplay}</p>
                   <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>اضغط لفتح واتساب</p>
                 </div>
               </div>
             </a>
 
             {/* Call Delivery Card */}
-            <a href="tel:+967775577200" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <a href={`tel:+${phoneDeliveryCall}`} style={{ textDecoration: 'none', color: 'inherit' }}>
               <div className="glass-card" style={{ padding: '22px', display: 'flex', gap: '16px', alignItems: 'center', cursor: 'pointer', transition: 'transform 0.2s' }}
                 onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
                 onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
@@ -112,7 +132,7 @@ export default function ContactPage() {
                 </div>
                 <div>
                   <h3 style={{ fontSize: '0.9rem', marginBottom: '4px', color: 'var(--text-secondary)' }}>اتصال التوصيل</h3>
-                  <p style={{ fontWeight: 700, fontSize: '1.15rem', color: '#3b82f6' }}>775577200</p>
+                  <p style={{ fontWeight: 700, fontSize: '1.15rem', color: '#3b82f6' }}>{deliveryCallDisplay}</p>
                   <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>اضغط للاتصال</p>
                 </div>
               </div>
@@ -129,7 +149,7 @@ export default function ContactPage() {
                 </div>
                 <div>
                   <h3 style={{ fontSize: '0.9rem', marginBottom: '4px', color: 'var(--text-secondary)' }}>موقعنا</h3>
-                  <p style={{ fontWeight: 700, fontSize: '1rem' }}>صنعاء - نهاية شارع الرباط</p>
+                  <p style={{ fontWeight: 700, fontSize: '1rem' }}>{addressMain}</p>
                   <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '2px' }}>اضغط لفتح خرائط جوجل</p>
                 </div>
               </div>
@@ -142,14 +162,13 @@ export default function ContactPage() {
               </div>
               <div>
                 <h3 style={{ fontSize: '0.9rem', marginBottom: '4px', color: 'var(--text-secondary)' }}>مواعيد العمل</h3>
-                <p style={{ fontWeight: 700, fontSize: '1rem' }}>يومياً من 6:00 صباحاً</p>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '2px' }}>حتى 12:00 منتصف الليل</p>
+                <p style={{ fontWeight: 700, fontSize: '1rem' }}>{workingHours}</p>
               </div>
             </div>
 
             {/* WhatsApp CTA Button */}
             <a
-              href="https://wa.me/967779898617"
+              href={`https://wa.me/${phoneDeliveryWhatsapp}`}
               target="_blank"
               rel="noopener noreferrer"
               style={{

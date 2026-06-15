@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { useSettings } from '@/lib/settings-context';
 import { Phone, MapPin, ChevronLeft, Pause, Play, Award, Clock, Truck, Users, CheckCircle, Smile, UtensilsCrossed, Star } from 'lucide-react';
 
 const WhatsAppIcon = ({ size = 24, color = "currentColor" }) => (
@@ -12,6 +13,16 @@ const WhatsAppIcon = ({ size = 24, color = "currentColor" }) => (
 );
 
 export default function Home() {
+  const { settings } = useSettings();
+  const rn = settings['restaurant_name'] || 'بيت المندي';
+  const phoneReservations = settings['phone_reservations'] || '01/465888';
+  const phoneDeliveryWhatsapp = settings['phone_delivery_whatsapp'] || '967779898617';
+  const phoneDeliveryCall = settings['phone_delivery_call'] || '967775577200';
+  const addressMain = settings['address_main'] || 'صنعاء - نهاية شارع الرباط، بداية شارع الستين';
+  const workingHours = settings['working_hours'] || 'يومياً من 11:00 صباحاً حتى 12:00 منتصف الليل';
+  const currency = settings['currency'] || 'ريال';
+  const whatsappDisplay = phoneDeliveryWhatsapp.replace(/^967/, '');
+  const deliveryCallDisplay = phoneDeliveryCall.replace(/^967/, '');
   const [offers, setOffers] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
   const [isMarqueePaused, setIsMarqueePaused] = useState(false);
@@ -106,10 +117,10 @@ export default function Home() {
         <div className="container animate-fade-in relative z-10 py-16 px-4 md:px-8 mt-4 md:mt-10">
           
           <h1 className="text-6xl md:text-8xl lg:text-[6.5rem] mb-6 md:mb-10 font-[var(--font-tajawal)] leading-tight" style={{ color: 'var(--gold)', textShadow: '0 0 20px rgba(197, 155, 95, 0.4)' }}>
-            بيت المندي
+            {rn}
           </h1>
           <p className="text-lg md:text-2xl lg:text-3xl mb-12 md:mb-16 max-w-3xl mx-auto leading-relaxed" style={{ color: '#F4EFE6', opacity: 0.9 }}>
-            بيــت المنــدي ... بيــت الجــميـــع
+            {rn} ... بيت الجميع
           </p>
           <div className="flex flex-col sm:flex-row gap-5 justify-center items-center">
             <Link href="/menu" className="btn-primary text-lg px-12 py-4 rounded-2xl w-full sm:w-auto" style={{ background: '#590f2b', color: '#F4EFE6', border: '1px solid rgba(197,155,95,0.4)', boxShadow: 'none' }}>
@@ -138,12 +149,12 @@ export default function Home() {
 
               {/* Phone */}
               <div className="flex items-center gap-3">
-                <a href="tel:01465888" className="p-2.5 rounded-xl shrink-0 transition-transform hover:scale-110" style={{ background: 'rgba(197,155,95,0.12)' }}>
+                <a href={`tel:+967${phoneReservations.replace(/[^0-9]/g, '')}`} className="p-2.5 rounded-xl shrink-0 transition-transform hover:scale-110" style={{ background: 'rgba(197,155,95,0.12)' }}>
                   <Phone size={20} color="var(--gold)" />
                 </a>
                 <div className="text-right flex flex-col items-end">
-                  <a href="tel:01465888" className="font-extrabold text-[0.95rem] leading-tight hover:text-[var(--gold)] transition-colors">للحجز: 01/465888</a>
-                  <a href="https://wa.me/967779898617" target="_blank" rel="noreferrer" className="text-xs text-[var(--gold)] mt-1 hover:underline">واتساب: 779898617</a>
+                  <a href={`tel:+967${phoneReservations.replace(/[^0-9]/g, '')}`} className="font-extrabold text-[0.95rem] leading-tight hover:text-[var(--gold)] transition-colors">للحجز: {phoneReservations}</a>
+                  <a href={`https://wa.me/${phoneDeliveryWhatsapp}`} target="_blank" rel="noreferrer" className="text-xs text-[var(--gold)] mt-1 hover:underline">واتساب: {whatsappDisplay}</a>
                 </div>
               </div>
 
@@ -155,8 +166,8 @@ export default function Home() {
                   <MapPin size={20} color="var(--gold)" />
                 </div>
                 <div className="text-right group-hover:text-[var(--gold)] transition-colors">
-                  <p className="font-extrabold text-[0.95rem] leading-tight">صنعاء - شارع الستين</p>
-                  <p className="text-xs text-[var(--gold)] mt-1">نهاية شارع الرباط</p>
+                  <p className="font-extrabold text-[0.95rem] leading-tight">{addressMain.split('،')[0]}</p>
+                  <p className="text-xs text-[var(--gold)] mt-1">{addressMain.split('،').slice(1).join('،')}</p>
                 </div>
               </a>
 
@@ -168,8 +179,7 @@ export default function Home() {
                   <Clock size={20} color="var(--gold)" />
                 </div>
                 <div className="text-right">
-                  <p className="font-extrabold text-[0.95rem] leading-tight">يومياً 6ص - 12م</p>
-                  <p className="text-xs text-[var(--gold)] mt-1">بما فيها الجمعة</p>
+                  <p className="font-extrabold text-[0.95rem] leading-tight">{workingHours}</p>
                 </div>
               </div>
 
@@ -270,7 +280,7 @@ export default function Home() {
             <h2 className="title-gold text-3xl md:text-5xl mb-6 leading-tight">طعم الأصالة اليمنية</h2>
             <div className="w-20 h-px mb-6" style={{ background: 'linear-gradient(270deg, transparent, var(--gold))' }} />
             <p className="text-base md:text-lg leading-relaxed mb-4" style={{ color: 'var(--text-primary)', opacity: 0.85 }}>
-              في بيت المندي، نقدم لكم تجربة طعام يمنية أصيلة تعكس تراثنا الغني. نستخدم أجود أنواع اللحوم الطازجة والبهارات المحضرة بعناية لضمان الطعم الفريد الذي يميزنا.
+               في {rn}، نقدم لكم تجربة طعام يمنية أصيلة تعكس تراثنا الغني. نستخدم أجود أنواع اللحوم الطازجة والبهارات المحضرة بعناية لضمان الطعم الفريد الذي يميزنا.
             </p>
             <p className="text-base md:text-lg leading-relaxed mb-8" style={{ color: 'var(--text-primary)', opacity: 0.85 }}>
               كل طبق نعده هو مزيج من الشغف والتقاليد التي توارثناها عن أجدادنا في أرض اليمن السعيد.
@@ -310,7 +320,7 @@ export default function Home() {
                 <div key={review.id} className="glass-card p-6">
                   <div className="flex gap-1 mb-4">
                     {[1, 2, 3, 4, 5].map(s => (
-                      <Award key={s} size={18} color="var(--gold)" fill="var(--gold)" />
+                      <Star key={s} size={18} color="var(--gold)" fill={s <= (review.rating || 5) ? 'var(--gold)' : 'none'} />
                     ))}
                   </div>
                   <p className="text-[var(--text-secondary)] leading-relaxed mb-6 text-sm md:text-base">
@@ -345,9 +355,9 @@ export default function Home() {
           {[
             {
               title: 'الفرع الرئيسي',
-              address: 'صنعاء - نهاية شارع الرباط، بداية شارع الستين',
-              phone: '01/465888',
-              hours: 'يومياً 11:00 ص - 12:00 م',
+              address: addressMain,
+              phone: phoneReservations,
+              hours: workingHours,
             }
           ].map((branch, i) => (
             <div key={i} className="glass-panel p-8">
@@ -378,12 +388,12 @@ export default function Home() {
                 <p style={{ color: 'var(--gold)', fontSize: '1.1rem', fontWeight: 600 }}>خدمة توصيل سريعة لجميع أحياء صنعاء</p>
               </div>
               <div className="flex flex-row-reverse justify-end gap-3 flex-wrap mt-2">
-                <a href="https://wa.me/967779898617" target="_blank" rel="noopener noreferrer" style={{ background: '#25D366', color: '#fff', borderRadius: '12px', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', fontSize: '1.1rem', transition: 'all 0.3s' }} className="hover:-translate-y-1 hover:shadow-lg">
-                  واتساب: 779898617
+                <a href={`https://wa.me/${phoneDeliveryWhatsapp}`} target="_blank" rel="noopener noreferrer" style={{ background: '#25D366', color: '#fff', borderRadius: '12px', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', fontSize: '1.1rem', transition: 'all 0.3s' }} className="hover:-translate-y-1 hover:shadow-lg">
+                  واتساب: {whatsappDisplay}
                   <WhatsAppIcon size={20} color="#fff" />
                 </a>
-                <a href="tel:+967775577200" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-primary)', borderRadius: '12px', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', fontSize: '1.1rem', transition: 'all 0.3s' }} className="hover:-translate-y-1 hover:border-[var(--gold)] hover:shadow-lg">
-                  775577200
+                <a href={`tel:+${phoneDeliveryCall}`} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-primary)', borderRadius: '12px', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', fontSize: '1.1rem', transition: 'all 0.3s' }} className="hover:-translate-y-1 hover:border-[var(--gold)] hover:shadow-lg">
+                  {deliveryCallDisplay}
                   <Phone size={20} color="var(--gold)" />
                 </a>
               </div>

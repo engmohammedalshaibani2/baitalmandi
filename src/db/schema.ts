@@ -95,10 +95,28 @@ export const offers = pgTable('offers', {
   descriptionEn: text('description_en'),
   discountPercent: integer('discount_percent'),
   salePrice: numeric('sale_price'),
+  discountAmount: numeric('discount_amount'),
+  offerType: text('offer_type').default('percentage_discount').notNull(),
+  isActive: boolean('is_active').default(true).notNull(),
   startDate: timestamp('start_date', { withTimezone: true }).notNull(),
   endDate: timestamp('end_date', { withTimezone: true }).notNull(),
   image: text('image'),
   status: offerStatusEnum('status').default('active').notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// ==========================================
+// 6b. Offer Items (Bundle Components)
+// ==========================================
+export const offerItems = pgTable('offer_items', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  offerId: uuid('offer_id').references(() => offers.id).notNull(),
+  menuItemId: uuid('menu_item_id').references(() => items.id).notNull(),
+  quantity: integer('quantity').default(1).notNull(),
+  priceId: uuid('price_id').references(() => itemPrices.id),
+  variantName: text('variant_name'),
+  unitPrice: numeric('unit_price').default('0').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
@@ -144,6 +162,7 @@ export const orders = pgTable('orders', {
   customerId: uuid('customer_id').references(() => users.id),
   customerName: text('customer_name').notNull(),
   customerPhone: text('customer_phone').notNull(),
+  trackingToken: text('tracking_token'),
   deliveryAddress: text('delivery_address'),
   subtotal: numeric('subtotal').notNull(),
   deliveryFee: numeric('delivery_fee').default('0').notNull(),
@@ -162,6 +181,18 @@ export const orders = pgTable('orders', {
   archivedAt: timestamp('archived_at', { withTimezone: true }),
   isDeleted: boolean('is_deleted').default(false).notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  deliveryLatitude: numeric('delivery_latitude'),
+  deliveryLongitude: numeric('delivery_longitude'),
+  deliveryZone: text('delivery_zone'),
+  deliveryDistanceKm: numeric('delivery_distance_km'),
+  deliveryDurationMinutes: integer('delivery_duration_minutes'),
+  locationVerified: boolean('location_verified').default(false),
+  baseDeliveryFeeAmount: numeric('base_delivery_fee_amount').default('0'),
+  extraDistanceKm: numeric('extra_distance_km').default('0'),
+  extraFeeAmount: numeric('extra_fee_amount').default('0'),
+  weatherFeeAmount: numeric('weather_fee_amount').default('0'),
+  peakFeeAmount: numeric('peak_fee_amount').default('0'),
+  peakPercentageUsed: numeric('peak_percentage_used').default('0'),
 });
 
 // ==========================================
@@ -258,7 +289,47 @@ export const auditLogs = pgTable('audit_logs', {
 });
 
 // ==========================================
-// 18. Scheduled Reports
+// 18b. Customer Tokens (Independent Tracking Layer)
+// ==========================================
+export const customerTokens = pgTable('customer_tokens', {
+  phone: text('phone').primaryKey(),
+  trackingToken: text('tracking_token').notNull().default(sql`gen_random_uuid()::text`),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+});
+
+// ==========================================
+// 18c. Order Offers (Snapshot at Order Time)
+// ==========================================
+export const orderOffers = pgTable('order_offers', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  orderId: uuid('order_id').references(() => orders.id, { onDelete: 'cascade' }).notNull(),
+  offerId: uuid('offer_id'),
+  offerName: text('offer_name').notNull(),
+  offerType: text('offer_type').notNull(),
+  originalPrice: numeric('original_price').notNull(),
+  discountAmount: numeric('discount_amount').notNull(),
+  discountPercent: numeric('discount_percent').default('0').notNull(),
+  finalPrice: numeric('final_price').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+});
+
+// ==========================================
+// 18d. Order Offer Items (Bundle Line Items Snapshot)
+// ==========================================
+export const orderOfferItems = pgTable('order_offer_items', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  orderOfferId: uuid('order_offer_id').references(() => orderOffers.id, { onDelete: 'cascade' }).notNull(),
+  itemId: uuid('item_id'),
+  itemName: text('item_name').notNull(),
+  sizeLabel: text('size_label').default('عادي'),
+  quantity: integer('quantity').default(1).notNull(),
+  unitPrice: numeric('unit_price').notNull(),
+  totalPrice: numeric('total_price').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+});
+
+// ==========================================
+// 19. Scheduled Reports
 // ==========================================
 export const scheduledReports = pgTable('scheduled_reports', {
   id: uuid('id').primaryKey().defaultRandom(),

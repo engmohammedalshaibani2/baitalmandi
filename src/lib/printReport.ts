@@ -1,4 +1,4 @@
-export type ReportTab = 'dashboard' | 'orders' | 'products' | 'customers' | 'summary';
+export type ReportTab = 'dashboard' | 'orders' | 'products' | 'customers' | 'summary' | 'offers' | 'invoices' | 'audit' | 'delivery';
 
 interface PrintReportOptions {
   activeTab: ReportTab;
@@ -10,6 +10,7 @@ interface PrintReportOptions {
   paymentFilter: string;
   searchQuery: string;
   qrCodeDataUrl: string;
+  adminName?: string;
 }
 
 async function fetchData(url: string) {
@@ -39,6 +40,10 @@ function periodLabel(tab: ReportTab) {
   if (tab === 'products') return 'تقرير تحليل الأطباق والأصناف';
   if (tab === 'customers') return 'تقرير تحليل العملاء';
   if (tab === 'summary') return 'تقرير مقارنة ونمو المبيعات';
+  if (tab === 'offers') return 'تقرير العروض والباقات';
+  if (tab === 'invoices') return 'تقرير فواتير الزبائن';
+  if (tab === 'audit') return 'تقرير سجلات التدقيق';
+  if (tab === 'delivery') return 'تقرير تحليلات التوصيل';
   return 'تقرير';
 }
 
@@ -78,7 +83,7 @@ function buildStyles() {
 }
 
 function buildHeader(options: PrintReportOptions) {
-  const { activeTab, currentStart, currentEnd, qrCodeDataUrl } = options;
+  const { activeTab, currentStart, currentEnd, qrCodeDataUrl, adminName } = options;
   const startFmt = new Date(currentStart).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
   const endFmt = new Date(currentEnd).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
   const nowFmt = new Date().toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' });
@@ -93,7 +98,7 @@ function buildHeader(options: PrintReportOptions) {
       </div>
       <div class="meta">
         <div><b>الفترة الزمنية:</b> ${startFmt} — ${endFmt}</div>
-        <div><b>المسؤول:</b> مدير النظام</div>
+        <div><b>المسؤول:</b> ${adminName || 'مدير النظام'}</div>
         <div><b>تاريخ الإصدار:</b> ${nowFmt}</div>
         <div><b>الحالة:</b> ${options.statusFilter === 'all' ? 'جميع الحالات' : statusLabel(options.statusFilter)}</div>
         <div><b>الدفع:</b> ${options.paymentFilter === 'all' ? 'جميع الطرق' : paymentLabel(options.paymentFilter)}</div>
@@ -256,6 +261,119 @@ function buildSummarySection(data: any) {
   `;
 }
 
+function buildOffersSection(data: any) {
+  if (!data) return '<p>لا توجد بيانات عروض</p>';
+  return `
+    <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
+      <div class="kpi-box"><div class="label">إجمالي الخصومات</div><div class="value">${Number(data.totalDiscountAmount || 0).toLocaleString('ar-EG')} ﷼</div></div>
+      <div class="kpi-box"><div class="label">عدد الطلبات ذات العروض</div><div class="value">${data.offerOrderCount || 0}</div></div>
+      <div class="kpi-box"><div class="label">نسبة الخصم من المبيعات</div><div class="value">${data.discountPercentage || 0}%</div></div>
+    </div>
+    ${(data.topOffers || []).length > 0 ? `
+    <h2 class="section-title">أفضل 10 عروض مبيعاً</h2>
+    <table>
+      <thead><tr><th>#</th><th>اسم العرض</th><th>عدد الطلبات</th><th>الإيرادات</th><th>إجمالي الخصم</th></tr></thead>
+      <tbody>
+        ${data.topOffers.map((o: any, i: number) => `
+          <tr><td>${i+1}</td><td>${o.name}</td><td>${o.count}</td><td>${Number(o.revenue).toLocaleString('ar-EG')} ﷼</td><td>${Number(o.discounts).toLocaleString('ar-EG')} ﷼</td></tr>
+        `).join('')}
+      </tbody>
+    </table>` : '<p style="color:#9ca3af;">لا توجد عروض مبيعة في هذه الفترة</p>'}
+  `;
+}
+
+function buildInvoicesSection(data: any) {
+  const invoices = data?.data || [];
+  return `
+    <table>
+      <thead><tr><th>#</th><th>رقم الفاتورة</th><th>التاريخ</th><th>العميل</th><th>الحالة</th><th>وسيلة الدفع</th><th>الإجمالي</th></tr></thead>
+      <tbody>
+        ${invoices.map((inv: any, i: number) => `
+          <tr>
+            <td>${i+1}</td>
+            <td>${inv.order_number}</td>
+            <td>${new Date(inv.created_at).toLocaleDateString('ar-EG')}</td>
+            <td>${inv.customer_name}</td>
+            <td>${inv.status}</td>
+            <td>${inv.payment_method}</td>
+            <td>${inv.total_amount} ﷼</td>
+          </tr>
+        `).join('')}
+        ${invoices.length === 0 ? '<tr><td colspan="7" style="text-align:center;color:#9ca3af;">لا توجد فواتير</td></tr>' : ''}
+      </tbody>
+    </table>
+    <p style="font-size:11px;color:#6b7280;margin-top:-12px;">إجمالي الفواتير: ${invoices.length}</p>
+  `;
+}
+
+function buildDeliverySection(data: any) {
+  if (!data || data.totalOrders === 0) return '<p>لا توجد بيانات توصيل</p>';
+  const feeByDay = (data.feeByDay || []);
+  const feeByDistanceRange = (data.feeByDistanceRange || []);
+  return `
+    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr)">
+      <div class="kpi-box"><div class="label">إجمالي رسوم التوصيل</div><div class="value">${Number(data.totalDeliveryFee).toLocaleString('ar-EG')} ﷼</div></div>
+      <div class="kpi-box"><div class="label">متوسط رسوم التوصيل</div><div class="value">${Number(data.avgDeliveryFee).toLocaleString('ar-EG')} ﷼</div></div>
+      <div class="kpi-box"><div class="label">متوسط المسافة</div><div class="value">${data.avgDistanceKm} كم</div></div>
+      <div class="kpi-box"><div class="label">الطلبات</div><div class="value">${data.totalOrders}</div></div>
+    </div>
+    <h2 class="section-title">تفاصيل الرسوم</h2>
+    <table>
+      <thead><tr><th>النوع</th><th>الإجمالي</th></tr></thead>
+      <tbody>
+        <tr><td>الرسوم الأساسية</td><td>${Number(data.totalBaseFee).toLocaleString('ar-EG')} ﷼</td></tr>
+        <tr><td>رسوم المسافة الإضافية</td><td>${Number(data.totalExtraFee).toLocaleString('ar-EG')} ﷼</td></tr>
+        <tr><td>رسوم الطقس</td><td>${Number(data.totalWeatherFee).toLocaleString('ar-EG')} ﷼ (${data.ordersWithWeatherFee} طلب)</td></tr>
+        <tr><td>رسوم الذروة</td><td>${Number(data.totalPeakFee).toLocaleString('ar-EG')} ﷼ (${data.ordersWithPeakFee} طلب، ${data.avgPeakPercentage}%)</td></tr>
+      </tbody>
+    </table>
+    ${feeByDay.length > 0 ? `
+    <h2 class="section-title">رسوم التوصيل حسب اليوم</h2>
+    <table>
+      <thead><tr><th>اليوم</th><th>الطلبات</th><th>إجمالي الرسوم</th><th>متوسط الرسوم</th></tr></thead>
+      <tbody>
+        ${feeByDay.map((r: any) => `
+          <tr><td>${r.day}</td><td>${r.orders}</td><td>${Number(r.totalFee).toLocaleString('ar-EG')} ﷼</td><td>${Number(r.avgFee).toLocaleString('ar-EG')} ﷼</td></tr>
+        `).join('')}
+      </tbody>
+    </table>` : ''}
+    ${feeByDistanceRange.length > 0 ? `
+    <h2 class="section-title">رسوم التوصيل حسب نطاق المسافة</h2>
+    <table>
+      <thead><tr><th>نطاق المسافة</th><th>الطلبات</th><th>إجمالي الرسوم</th></tr></thead>
+      <tbody>
+        ${feeByDistanceRange.map((r: any) => `
+          <tr><td>${r.range}</td><td>${r.orders}</td><td>${Number(r.totalFee).toLocaleString('ar-EG')} ﷼</td></tr>
+        `).join('')}
+      </tbody>
+    </table>` : ''}
+  `;
+}
+
+function buildAuditSection(data: any) {
+  const logs = data?.data || [];
+  return `
+    <table>
+      <thead><tr><th>#</th><th>التاريخ والوقت</th><th>رقم الطلب</th><th>العميل</th><th>الحالة القديمة</th><th>الحالة الجديدة</th><th>بواسطة</th></tr></thead>
+      <tbody>
+        ${logs.map((log: any, i: number) => `
+          <tr>
+            <td>${i+1}</td>
+            <td>${new Date(log.created_at).toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' })}</td>
+            <td>${log.order_number}</td>
+            <td>${log.customer_name}</td>
+            <td>${log.old_status}</td>
+            <td>${log.new_status}</td>
+            <td>${log.changed_by}</td>
+          </tr>
+        `).join('')}
+        ${logs.length === 0 ? '<tr><td colspan="7" style="text-align:center;color:#9ca3af;">لا توجد سجلات تدقيق</td></tr>' : ''}
+      </tbody>
+    </table>
+    <p style="font-size:11px;color:#6b7280;margin-top:-12px;">إجمالي السجلات: ${logs.length}</p>
+  `;
+}
+
 export async function printReport(options: PrintReportOptions) {
   const { activeTab, currentStart, currentEnd, prevStart, prevEnd, statusFilter, paymentFilter, searchQuery } = options;
 
@@ -267,14 +385,20 @@ export async function printReport(options: PrintReportOptions) {
   let productsData: any = null;
   let customersData: any = null;
   let summaryData: any = null;
+  let offersData: any = null;
+  let invoicesData: any = null;
+  let auditData: any = null;
 
   if (activeTab === 'dashboard') {
-    [dashData, ordersData, productsData, customersData, summaryData] = await Promise.all([
+    [dashData, ordersData, productsData, customersData, summaryData, offersData, invoicesData, auditData] = await Promise.all([
       fetchData(`/api/reports/dashboard?${qs}`),
       fetchData(`/api/reports/orders?${qs}&limit=50`),
       fetchData(`/api/reports/products?${qs}`),
       fetchData(`/api/reports/customers?${qs}`),
       fetchData(`/api/reports/compare?currStart=${currentStart}&currEnd=${currentEnd}&prevStart=${prevStart}&prevEnd=${prevEnd}&status=${statusFilter}&payment=${paymentFilter}&search=${encodeURIComponent(searchQuery)}`),
+      fetchData(`/api/reports/offers?${qs}`),
+      fetchData(`/api/reports/invoices?${qs}`),
+      fetchData(`/api/reports/audit?${qs}`),
     ]);
   } else if (activeTab === 'orders') {
     ordersData = await fetchData(`/api/reports/orders?${qs}&limit=200`);
@@ -284,6 +408,14 @@ export async function printReport(options: PrintReportOptions) {
     customersData = await fetchData(`/api/reports/customers?${qs}`);
   } else if (activeTab === 'summary') {
     summaryData = await fetchData(`/api/reports/compare?currStart=${currentStart}&currEnd=${currentEnd}&prevStart=${prevStart}&prevEnd=${prevEnd}&status=${statusFilter}&payment=${paymentFilter}&search=${encodeURIComponent(searchQuery)}`);
+  } else if (activeTab === 'offers') {
+    offersData = await fetchData(`/api/reports/offers?${qs}`);
+  } else if (activeTab === 'invoices') {
+    invoicesData = await fetchData(`/api/reports/invoices?${qs}`);
+  } else if (activeTab === 'audit') {
+    auditData = await fetchData(`/api/reports/audit?${qs}`);
+  } else if (activeTab === 'delivery') {
+    dashData = await fetchData(`/api/reports/delivery-analytics?${qs}`);
   }
 
   // Build HTML body
@@ -308,6 +440,18 @@ export async function printReport(options: PrintReportOptions) {
     body += buildHeader(options);
     body += `<h2 class="section-title">مقارنة ونمو المبيعات</h2>`;
     body += buildSummarySection(summaryData);
+    body += `<div class="page-break"></div>`;
+    body += buildHeader(options);
+    body += `<h2 class="section-title">العروض والباقات</h2>`;
+    body += buildOffersSection(offersData);
+    body += `<div class="page-break"></div>`;
+    body += buildHeader(options);
+    body += `<h2 class="section-title">فواتير الزبائن</h2>`;
+    body += buildInvoicesSection(invoicesData);
+    body += `<div class="page-break"></div>`;
+    body += buildHeader(options);
+    body += `<h2 class="section-title">سجلات التدقيق</h2>`;
+    body += buildAuditSection(auditData);
   } else if (activeTab === 'orders') {
     body += `<h2 class="section-title">سجل الطلبات التفصيلي</h2>`;
     body += buildOrdersSection(ordersData);
@@ -318,6 +462,18 @@ export async function printReport(options: PrintReportOptions) {
     body += buildCustomersSection(customersData);
   } else if (activeTab === 'summary') {
     body += buildSummarySection(summaryData);
+  } else if (activeTab === 'offers') {
+    body += `<h2 class="section-title">العروض والباقات</h2>`;
+    body += buildOffersSection(offersData);
+  } else if (activeTab === 'invoices') {
+    body += `<h2 class="section-title">فواتير الزبائن</h2>`;
+    body += buildInvoicesSection(invoicesData);
+  } else if (activeTab === 'audit') {
+    body += `<h2 class="section-title">سجلات التدقيق</h2>`;
+    body += buildAuditSection(auditData);
+  } else if (activeTab === 'delivery') {
+    body += `<h2 class="section-title">تحليلات التوصيل</h2>`;
+    body += buildDeliverySection(dashData);
   }
 
   body += buildFooter();

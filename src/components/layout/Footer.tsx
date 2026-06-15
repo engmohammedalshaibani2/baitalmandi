@@ -3,10 +3,18 @@
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { siteConfig } from '@/lib/constants';
+import { useSettings } from '@/lib/settings-context';
 import { Phone, MapPin, Clock, Instagram, Facebook } from 'lucide-react';
 
 export default function Footer() {
+  const { settings } = useSettings();
+  const name = settings['restaurant_name'] || 'بيت المندي';
+  const address = settings['address_main'] || 'صنعاء - نهاية شارع الرباط، بداية شارع الستين';
+  const phoneReservations = settings['phone_reservations'] || '01/465888';
+  const phoneDeliveryWhatsapp = settings['phone_delivery_whatsapp'] || '967779898617';
+  const phoneDeliveryCall = settings['phone_delivery_call'] || '967775577200';
+  const workingHours = settings['working_hours'] || 'يومياً من 11:00 صباحاً حتى 12:00 منتصف الليل';
+  const whatsappDisplay = phoneDeliveryWhatsapp.replace(/^967/, '');
   return (
     <footer className="plum-heritage-gradient" style={{
       marginTop: '80px',
@@ -37,7 +45,7 @@ export default function Footer() {
             <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
               <Image
                 src="/logo.jpg"
-                alt="شعار بيت المندي"
+                alt={`شعار ${name}`}
                 width={52}
                 height={52}
                 style={{ borderRadius: '50%', background: 'var(--maroon)', padding: '5px' }}
@@ -48,7 +56,7 @@ export default function Footer() {
                 fontWeight: 900,
                 color: 'var(--gold)',
               }}>
-                بيت المندي
+                {name}
               </span>
             </Link>
             <p style={{ color: 'rgba(244, 239, 230, 0.85)', lineHeight: 1.8, maxWidth: '260px', fontSize: '1rem' }}>
@@ -57,7 +65,7 @@ export default function Footer() {
             {/* Social */}
             <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
               <a
-                href={siteConfig.social.instagram}
+                href={settings['instagram'] || 'https://www.instagram.com/baitalmandiy?igsh=MWVnYWRuZ3E1ZnB5dA=='}
                 target="_blank" rel="noreferrer"
                 aria-label="إنستغرام"
                 style={{
@@ -78,7 +86,7 @@ export default function Footer() {
                 <Instagram size={20} />
               </a>
               <a
-                href={siteConfig.social.facebook}
+                href={settings['facebook'] || 'https://facebook.com/baitalmandiy'}
                 target="_blank" rel="noreferrer"
                 aria-label="فيسبوك"
                 style={{
@@ -138,27 +146,27 @@ export default function Footer() {
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <a
-                href={siteConfig.contact.booking.url}
+                href={`tel:+967${phoneReservations.replace(/[^0-9]/g, '')}`}
                 style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'rgba(244, 239, 230, 0.85)', fontSize: '1.05rem' }}
               >
                 <Phone size={18} style={{ color: 'var(--gold)', flexShrink: 0 }} />
-                للحجز: {siteConfig.contact.booking.display}
+                للحجز: {phoneReservations}
               </a>
               <a
-                href={siteConfig.contact.delivery.whatsapp}
+                href={`https://wa.me/${phoneDeliveryWhatsapp}`}
                 target="_blank" rel="noreferrer"
                 style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'rgba(244, 239, 230, 0.85)', fontSize: '1.05rem' }}
               >
                 <Phone size={18} style={{ color: 'var(--gold)', flexShrink: 0 }} />
-                توصيل: {siteConfig.contact.delivery.display}
+                توصيل: {whatsappDisplay}
               </a>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', color: 'rgba(244, 239, 230, 0.85)', fontSize: '1.05rem' }}>
                 <MapPin size={18} style={{ color: 'var(--gold)', flexShrink: 0, marginTop: '4px' }} />
-                <span>{siteConfig.address}</span>
+                <span>{address}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'rgba(244, 239, 230, 0.85)', fontSize: '1.05rem' }}>
                 <Clock size={18} style={{ color: 'var(--gold)', flexShrink: 0 }} />
-                يومياً 11:00 ص — 12:00 م
+                {workingHours}
               </div>
             </div>
           </div>
@@ -175,7 +183,7 @@ export default function Footer() {
           gap: '12px',
         }}>
           <p style={{ color: 'rgba(244, 239, 230, 0.65)', fontSize: '0.95rem' }}>
-            © {new Date().getFullYear()} مطعم بيت المندي — جميع الحقوق محفوظة
+            © {new Date().getFullYear()} مطعم {name} — جميع الحقوق محفوظة
           </p>
           <p style={{ color: 'rgba(244, 239, 230, 0.65)', fontSize: '0.95rem' }}>
             صنعاء، اليمن 🇾🇪

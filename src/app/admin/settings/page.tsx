@@ -2,12 +2,26 @@
 
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Save, Settings, Phone, Clock, Truck, MessageCircle } from 'lucide-react';
+import { useSettings } from '@/lib/settings-context';
+import { Save, Settings, Phone, Clock, Truck, MessageCircle, Wallet, Banknote, Plus, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
 
 interface SettingItem {
   key: string;
   value: string;
   description?: string;
+}
+
+interface WalletItem {
+  name: string;
+  number: string;
+  active: boolean;
+}
+
+interface BankItem {
+  name: string;
+  account_number: string;
+  account_holder: string;
+  active: boolean;
 }
 
 const DEFAULT_SETTINGS: SettingItem[] = [
@@ -24,55 +38,101 @@ const DEFAULT_SETTINGS: SettingItem[] = [
 ];
 
 export default function AdminSettingsPage() {
-  const [settings, setSettings] = useState<Record<string, string>>({});
+  const { settings: contextSettings, loading: contextLoading, refresh } = useSettings();
+  const [savedSettings, setSavedSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
 
-  useEffect(() => { fetchSettings(); }, []);
+  const [wallets, setWallets] = useState<WalletItem[]>([]);
+  const [banks, setBanks] = useState<BankItem[]>([]);
 
-  async function fetchSettings() {
-    const { data, error } = await supabase.from('site_settings').select('*');
-    if (data && data.length > 0) {
-      const settingsMap: Record<string, string> = {};
-      data.forEach((item: any) => { settingsMap[item.setting_key] = typeof item.value === 'string' ? item.value : JSON.stringify(item.value); });
-      setSettings(settingsMap);
-    } else {
-      // Use defaults if table is empty or doesn't exist
-      const defaultMap: Record<string, string> = {};
-      DEFAULT_SETTINGS.forEach(s => { defaultMap[s.key] = s.value; });
-      setSettings(defaultMap);
+  useEffect(() => {
+    if (!contextLoading) {
+      if (Object.keys(contextSettings).length > 0) {
+        setSavedSettings(contextSettings);
+      } else {
+        const defaultMap: Record<string, string> = {};
+        DEFAULT_SETTINGS.forEach(s => { defaultMap[s.key] = s.value; });
+        setSavedSettings(defaultMap);
+      }
+      setLoading(false);
     }
-    setLoading(false);
-  }
+  }, [contextLoading, contextSettings]);
+
+  useEffect(() => {
+    if (Object.keys(savedSettings).length > 0) {
+      try {
+        const w = JSON.parse(savedSettings['payment_wallets'] || '[]');
+        setWallets(Array.isArray(w) ? w : []);
+      } catch { setWallets([]); }
+      try {
+        const b = JSON.parse(savedSettings['payment_banks'] || '[]');
+        setBanks(Array.isArray(b) ? b : []);
+      } catch { setBanks([]); }
+    }
+  }, [savedSettings]);
 
   const handleChange = (key: string, value: string) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
+    setSavedSettings(prev => ({ ...prev, [key]: value }));
   };
 
   const handleSave = async () => {
     setSaving(true);
     setSaveMessage('');
-    
-    try {
-      const upsertData = DEFAULT_SETTINGS.map(s => ({
-        setting_key: s.key,
-        value: settings[s.key] ?? s.value,
-      }));
 
-      const { error } = await supabase.from('site_settings').upsert(upsertData, { onConflict: 'setting_key' });
-      
-      if (error) {
-        setSaveMessage('⚠️ حدث خطأ أثناء الحفظ: ' + error.message);
-      } else {
-        setSaveMessage('✓ تم حفظ الإعدادات بنجاح!');
-      }
-    } catch (err) {
-      setSaveMessage('⚠️ تعذّر الاتصال بقاعدة البيانات');
+    const upsertData = [
+      ...DEFAULT_SETTINGS.map(s => ({
+        setting_key: s.key,
+        value: savedSettings[s.key] ?? s.value,
+      })),
+      { setting_key: 'payment_wallets', value: JSON.stringify(wallets) },
+      { setting_key: 'payment_banks', value: JSON.stringify(banks) },
+    ];
+
+    const { error } = await supabase.from('site_settings').upsert(upsertData, { onConflict: 'setting_key' });
+
+    if (error) {
+      setSaveMessage('⚠️ حدث خطأ أثناء الحفظ: ' + error.message);
+    } else {
+      setSaveMessage('✓ تم حفظ الإعدادات بنجاح!');
+      refresh();
     }
-    
+
     setSaving(false);
     setTimeout(() => setSaveMessage(''), 4000);
+  };
+
+  const addWallet = () => {
+    setWallets(prev => [...prev, { name: '', number: '', active: true }]);
+  };
+
+  const updateWallet = (index: number, field: keyof WalletItem, value: string | boolean) => {
+    setWallets(prev => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], [field]: value };
+      return copy;
+    });
+  };
+
+  const removeWallet = (index: number) => {
+    setWallets(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const addBank = () => {
+    setBanks(prev => [...prev, { name: '', account_number: '', account_holder: '', active: true }]);
+  };
+
+  const updateBank = (index: number, field: keyof BankItem, value: string | boolean) => {
+    setBanks(prev => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], [field]: value };
+      return copy;
+    });
+  };
+
+  const removeBank = (index: number) => {
+    setBanks(prev => prev.filter((_, i) => i !== index));
   };
 
   const sections = [
@@ -107,6 +167,10 @@ export default function AdminSettingsPage() {
     </div>
   );
 
+  const inputStyle: React.CSSProperties = {
+    display: 'block', marginBottom: '8px', color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 600,
+  };
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
@@ -133,7 +197,7 @@ export default function AdminSettingsPage() {
         {sections.map(section => {
           const Icon = section.icon;
           const sectionSettings = DEFAULT_SETTINGS.filter(s => section.keys.includes(s.key));
-          
+
           return (
             <div key={section.title} className="glass-panel" style={{ padding: '28px' }}>
               <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1.2rem', marginBottom: '24px', paddingBottom: '12px', borderBottom: '1px solid var(--border)' }}>
@@ -143,13 +207,13 @@ export default function AdminSettingsPage() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
                 {sectionSettings.map(setting => (
                   <div key={setting.key}>
-                    <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 600 }}>
+                    <label style={inputStyle}>
                       {setting.description}
                     </label>
                     <input
                       type="text"
                       className="form-input"
-                      value={settings[setting.key] ?? setting.value}
+                      value={savedSettings[setting.key] ?? setting.value}
                       onChange={e => handleChange(setting.key, e.target.value)}
                     />
                     <small style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>
@@ -161,6 +225,106 @@ export default function AdminSettingsPage() {
             </div>
           );
         })}
+
+        {/* ━━━━━ Payment Settings ━━━━━ */}
+        <div className="glass-panel" style={{ padding: '28px' }}>
+          <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1.2rem', marginBottom: '24px', paddingBottom: '12px', borderBottom: '1px solid var(--border)' }}>
+            <Wallet size={20} color="var(--gold)" />
+            إعدادات الدفع
+          </h2>
+
+          {/* Wallets */}
+          <div style={{ marginBottom: '32px' }}>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.05rem', marginBottom: '16px', color: 'var(--text-primary)' }}>
+              <Banknote size={18} color="var(--gold)" />
+              المحافظ الإلكترونية
+            </h3>
+            {wallets.length === 0 && (
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '12px' }}>لا توجد محافظ مضافة. أضف محفظة جديدة.</p>
+            )}
+            {wallets.map((wallet, index) => (
+              <div key={index} style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', padding: '16px', marginBottom: '12px', background: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--border)', alignItems: 'flex-end' }}>
+                <div style={{ flex: '1 1 180px', minWidth: '150px' }}>
+                  <label style={inputStyle}>اسم المحفظة</label>
+                  <input type="text" className="form-input" value={wallet.name} onChange={e => updateWallet(index, 'name', e.target.value)} placeholder="جوالي" />
+                </div>
+                <div style={{ flex: '1 1 180px', minWidth: '150px' }}>
+                  <label style={inputStyle}>رقم المحفظة</label>
+                  <input type="text" className="form-input" value={wallet.number} onChange={e => updateWallet(index, 'number', e.target.value)} placeholder="777777777" />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingBottom: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => updateWallet(index, 'active', !wallet.active)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: wallet.active ? '#10b981' : 'var(--text-muted)', padding: '4px' }}
+                    title={wallet.active ? 'مفعل' : 'غير مفعل'}
+                  >
+                    {wallet.active ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
+                  </button>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{wallet.active ? 'مفعل' : 'غير مفعل'}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeWallet(index)}
+                  style={{ background: 'rgba(239,68,68,0.1)', border: 'none', color: '#ef4444', padding: '10px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                >
+                  <Trash2 size={16} /> حذف
+                </button>
+              </div>
+            ))}
+            <button type="button" onClick={addWallet} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', padding: '10px 20px' }}>
+              <Plus size={16} /> إضافة محفظة
+            </button>
+          </div>
+
+          {/* Banks */}
+          <div>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.05rem', marginBottom: '16px', color: 'var(--text-primary)' }}>
+              <Banknote size={18} color="var(--gold)" />
+              الحسابات البنكية
+            </h3>
+            {banks.length === 0 && (
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '12px' }}>لا توجد حسابات بنكية مضافة. أضف حساباً جديداً.</p>
+            )}
+            {banks.map((bank, index) => (
+              <div key={index} style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', padding: '16px', marginBottom: '12px', background: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--border)', alignItems: 'flex-end' }}>
+                <div style={{ flex: '1 1 160px', minWidth: '140px' }}>
+                  <label style={inputStyle}>اسم البنك</label>
+                  <input type="text" className="form-input" value={bank.name} onChange={e => updateBank(index, 'name', e.target.value)} placeholder="بنك الكريمي" />
+                </div>
+                <div style={{ flex: '1 1 160px', minWidth: '140px' }}>
+                  <label style={inputStyle}>رقم الحساب</label>
+                  <input type="text" className="form-input" value={bank.account_number} onChange={e => updateBank(index, 'account_number', e.target.value)} placeholder="123456789" />
+                </div>
+                <div style={{ flex: '1 1 160px', minWidth: '140px' }}>
+                  <label style={inputStyle}>اسم صاحب الحساب</label>
+                  <input type="text" className="form-input" value={bank.account_holder} onChange={e => updateBank(index, 'account_holder', e.target.value)} placeholder="محمد أحمد" />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingBottom: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => updateBank(index, 'active', !bank.active)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: bank.active ? '#10b981' : 'var(--text-muted)', padding: '4px' }}
+                    title={bank.active ? 'مفعل' : 'غير مفعل'}
+                  >
+                    {bank.active ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
+                  </button>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{bank.active ? 'مفعل' : 'غير مفعل'}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeBank(index)}
+                  style={{ background: 'rgba(239,68,68,0.1)', border: 'none', color: '#ef4444', padding: '10px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                >
+                  <Trash2 size={16} /> حذف
+                </button>
+              </div>
+            ))}
+            <button type="button" onClick={addBank} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', padding: '10px 20px' }}>
+              <Plus size={16} /> إضافة حساب بنكي
+            </button>
+          </div>
+        </div>
 
         {/* Danger Zone */}
         <div className="glass-panel" style={{ padding: '28px', border: '1px solid rgba(239,68,68,0.25)' }}>

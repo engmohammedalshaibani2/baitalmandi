@@ -37,12 +37,20 @@ export default function AdminReviewsPage() {
 
   const handleAddReview = async (e: React.FormEvent) => {
     e.preventDefault();
-    await supabase.from('reviews').insert([{ reviewer_name: name, rating, comment_ar: comment, source, is_featured: true }]);
-    setName(''); setRating(5); setComment(''); setSource('Website');
-    await fetchReviews();
+    const { error } = await supabase.from('reviews').insert([{ reviewer_name: name.trim(), rating, comment_ar: comment.trim(), source, is_featured: true }]);
+    if (!error) {
+      setName('');
+      setRating(5);
+      setComment('');
+      setSource('Website');
+      await fetchReviews();
+    }
   };
 
-  const filteredReviews = reviews.filter(r => activeTab === 'approved' ? r.is_featured : !r.is_featured);
+  const filteredReviews = reviews.filter(r => {
+    const isFeatured = r.is_featured ?? r.isFeatured ?? false;
+    return activeTab === 'approved' ? isFeatured : !isFeatured;
+  });
 
   return (
     <div>
@@ -64,30 +72,36 @@ export default function AdminReviewsPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {filteredReviews.length === 0 ? (
               <p style={{ color: 'var(--text-secondary)', padding: '30px', textAlign: 'center' }}>لا توجد تقييمات في هذه الحالة.</p>
-            ) : filteredReviews.map(review => (
-              <div key={review.id} className="glass-card" style={{ padding: '20px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
-                    <h3 style={{ fontSize: '1rem', marginBottom: '4px' }}>{review.reviewer_name}</h3>
-                    <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
-                      {[1,2,3,4,5].map(s => <Star key={s} size={14} fill={s <= review.rating ? 'var(--gold)' : 'none'} color="var(--gold)" />)}
-                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginRight: '8px' }}>{review.source}</span>
+            ) : filteredReviews.map(review => {
+              const reviewerName = review.reviewer_name || review.reviewerName || review.customer_name || 'مستخدم';
+              const commentText = review.comment_ar || review.commentAr || review.comment || 'لا يوجد تعليق.';
+              const isFeatured = review.is_featured ?? review.isFeatured ?? false;
+
+              return (
+                <div key={review.id} className="glass-card" style={{ padding: '20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                      <h3 style={{ fontSize: '1rem', marginBottom: '4px' }}>{reviewerName}</h3>
+                      <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
+                        {[1,2,3,4,5].map(s => <Star key={s} size={14} fill={s <= review.rating ? 'var(--gold)' : 'none'} color="var(--gold)" />)}
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginRight: '8px' }}>{review.source || 'الموقع'}</span>
+                      </div>
+                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: 1.6 }}>{commentText}</p>
                     </div>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: 1.6 }}>{review.comment_ar}</p>
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px', flexShrink: 0, marginRight: '15px' }}>
-                    {!review.is_featured && (
-                      <button onClick={() => handleApprove(review.id)} style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981', border: 'none', borderRadius: '8px', padding: '8px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}>
-                        <Check size={15} /> قبول
+                    <div style={{ display: 'flex', gap: '8px', flexShrink: 0, marginRight: '15px' }}>
+                      {!isFeatured && (
+                        <button onClick={() => handleApprove(review.id)} style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981', border: 'none', borderRadius: '8px', padding: '8px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}>
+                          <Check size={15} /> قبول
+                        </button>
+                      )}
+                      <button onClick={() => handleDelete(review.id)} style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: 'none', borderRadius: '8px', padding: '8px', cursor: 'pointer' }}>
+                        <Trash2 size={15} />
                       </button>
-                    )}
-                    <button onClick={() => handleDelete(review.id)} style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: 'none', borderRadius: '8px', padding: '8px', cursor: 'pointer' }}>
-                      <Trash2 size={15} />
-                    </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
 

@@ -10,6 +10,7 @@ export default function ProductsTab({ startDate, endDate, status, payment, searc
     fetch(`/api/reports/products?startDate=${startDate}&endDate=${endDate}&status=${status}&payment=${payment}&search=${encodeURIComponent(search || '')}`)
       .then(res => res.json())
       .then(setData)
+      .catch(err => { console.error('[ProductsTab] Fetch error:', err); setData({ top10Qty: [], top10Rev: [], bottom10Qty: [], unsold: [], categoriesSales: [] }); })
       .finally(() => setLoading(false));
   }, [startDate, endDate, status, payment, search]);
 

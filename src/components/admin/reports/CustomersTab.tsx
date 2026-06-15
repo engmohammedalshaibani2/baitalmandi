@@ -10,6 +10,7 @@ export default function CustomersTab({ startDate, endDate, status, payment, sear
     fetch(`/api/reports/customers?startDate=${startDate}&endDate=${endDate}&status=${status}&payment=${payment}&search=${encodeURIComponent(search || '')}`)
       .then(res => res.json())
       .then(setData)
+      .catch(err => { console.error('[CustomersTab] Fetch error:', err); setData([]); })
       .finally(() => setLoading(false));
   }, [startDate, endDate, status, payment, search]);
 

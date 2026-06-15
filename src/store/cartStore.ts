@@ -1,6 +1,16 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+export interface BundleSubItem {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  size?: string;
+  category?: string;
+  image?: string;
+}
+
 export interface CartItem {
   id: string;
   name: string;
@@ -9,6 +19,13 @@ export interface CartItem {
   size?: string;
   category?: string;
   image?: string;
+  isOffer?: boolean;
+  offerId?: string;
+  offerType?: string;
+  originalPrice?: number;
+  discountAmount?: number;
+  discountPercent?: number;
+  bundleItems?: BundleSubItem[];
 }
 
 interface CartState {

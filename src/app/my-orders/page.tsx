@@ -1,392 +1,689 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCartStore } from '@/store/cartStore';
-import { supabase } from '@/lib/supabase';
-import { Trash2, Plus, Minus, ArrowRight, MessageCircle, Globe, CheckCircle, ShoppingBag } from 'lucide-react';
+import { useSettings } from '@/lib/settings-context';
+import { createOrder, calculateDeliveryFeeServer } from '@/actions/orders';
+import { Trash2, Plus, Minus, ArrowRight, MessageCircle, CheckCircle, ShoppingBag, Copy, Wallet, MapPin, Crosshair } from 'lucide-react';
+import { getDeliveryRoute } from '@/lib/maps/getDeliveryRoute';
 
-function generateOrderNumber() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let result = 'BAM-';
-  for (let i = 0; i < 4; i++) result += chars[Math.floor(Math.random() * chars.length)];
-  result += '-';
-  for (let i = 0; i < 4; i++) result += chars[Math.floor(Math.random() * chars.length)];
-  return result;
+import 'leaflet/dist/leaflet.css';
+
+interface WalletItem { name: string; number: string; active: boolean; }
+interface BankItem { name: string; account_number: string; account_holder: string; active: boolean; }
+
+interface DeliveryInfo {
+  lat: number;
+  lng: number;
+  fee: number;
+  distanceKm: number;
+  addressSuggestion: string;
 }
 
 export default function MyOrdersPage() {
-  const { items, updateQuantity, removeFromCart, getCartTotal, clearCart } = useCartStore();
-  const [isClient, setIsClient] = useState(false);
-  const [showOrderModal, setShowOrderModal] = useState(false);
-  const [orderMethod, setOrderMethod] = useState<'whatsapp' | 'website' | null>(null);
+  const router = useRouter();
+  const { settings } = useSettings();
+  const whatsappNumber = settings['whatsapp_order_number'] || settings['phone_delivery_whatsapp'] || '967779898617';
+  const currency = settings['currency'] || 'ريال';
 
-  // Form fields
-  const [fullName, setFullName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
+  let wallets: WalletItem[] = [];
+  try { const w = JSON.parse(settings['payment_wallets'] || '[]'); wallets = Array.isArray(w) ? w.filter((x: any) => x.active) : []; } catch {}
+  let banks: BankItem[] = [];
+  try { const b = JSON.parse(settings['payment_banks'] || '[]'); banks = Array.isArray(b) ? b.filter((x: any) => x.active) : []; } catch {}
+
+  const { items: cart, updateQuantity, removeFromCart, getCartTotal, clearCart } = useCartStore();
+  const cartTotal = getCartTotal();
+  const [mounted, setMounted] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const [customerInfo, setCustomerInfo] = useState({ name: '', phone: '', address: '' });
   const [notes, setNotes] = useState('');
   const [nameError, setNameError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const [addressError, setAddressError] = useState('');
 
-  // Success state
-  const [orderSuccess, setOrderSuccess] = useState<string | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'wallet' | 'transfer'>('cash');
+  const [selectedWalletIdx, setSelectedWalletIdx] = useState<number | null>(null);
+  const [selectedBankIdx, setSelectedBankIdx] = useState<number | null>(null);
+  const [copiedIndex, setCopiedIndex] = useState<string | null>(null);
 
-  useEffect(() => { setIsClient(true); }, []);
+  const [deliveryInfo, setDeliveryInfo] = useState<DeliveryInfo | null>(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationError, setLocationError] = useState('');
 
-  const handleDelete = (id: string, name: string) => {
-    if (window.confirm(`هل تريد إزالة "${name}"؟`)) {
-      removeFromCart(id);
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstance = useRef<any>(null);
+  const markerInstance = useRef<any>(null);
+  const restaurantMarkerRef = useRef<any>(null);
+  const routeLineRef = useRef<any>(null);
+  const [mapReady, setMapReady] = useState(false);
+  const [routeLoading, setRouteLoading] = useState(false);
+
+  const totalWithDelivery = cartTotal + (deliveryInfo?.fee || 0);
+
+  useEffect(() => { setMounted(true); }, []);
+
+  useEffect(() => {
+    if (deliveryInfo?.addressSuggestion && !customerInfo.address) {
+      setCustomerInfo(prev => ({ ...prev, address: deliveryInfo.addressSuggestion }));
     }
+  }, [deliveryInfo?.addressSuggestion]);
+
+  useEffect(() => {
+    if (wallets.length > 0 && selectedWalletIdx === null) setSelectedWalletIdx(0);
+  }, [wallets]);
+
+  useEffect(() => {
+    if (banks.length > 0 && selectedBankIdx === null) setSelectedBankIdx(0);
+  }, [banks]);
+
+  useEffect(() => {
+    if (!mounted || !mapRef.current || mapInstance.current) return;
+
+    const initMap = async () => {
+      const el = mapRef.current;
+      if (!el) return;
+
+      const L = (await import('leaflet')).default;
+
+      delete (L.Icon.Default.prototype as any)._getIconUrl;
+      L.Icon.Default.mergeOptions({
+        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+      });
+
+      const map = L.map(el, {
+        center: [15.3547, 44.2067],
+        zoom: 12,
+        zoomControl: false,
+      });
+
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>',
+        maxZoom: 19,
+      }).addTo(map);
+
+      L.control.zoom({ position: 'bottomleft' }).addTo(map);
+
+      map.on('click', (e: any) => {
+        handleLocationSelect(e.latlng.lat, e.latlng.lng);
+      });
+
+      mapInstance.current = map;
+
+      const restLat = parseFloat(settings['restaurant_lat'] || '15.360035270551275');
+      const restLng = parseFloat(settings['restaurant_lng'] || '44.17484814594534');
+      if (restLat && restLng) {
+        const restIcon = L.divIcon({
+          html: '<div style="background:#C59B5F;color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.3)">🏪</div>',
+          className: '',
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
+        });
+        restaurantMarkerRef.current = L.marker([restLat, restLng], { icon: restIcon, interactive: false }).addTo(map);
+      }
+
+      setMapReady(true);
+    };
+
+    initMap();
+
+    return () => {
+      if (routeLineRef.current) {
+        routeLineRef.current.remove();
+        routeLineRef.current = null;
+      }
+      if (restaurantMarkerRef.current) {
+        restaurantMarkerRef.current.remove();
+        restaurantMarkerRef.current = null;
+      }
+      if (mapInstance.current) {
+        mapInstance.current.remove();
+        mapInstance.current = null;
+      }
+    };
+  }, [mounted]);
+
+  const [leafletModule, setLeafletModule] = useState<any>(null);
+  useEffect(() => {
+    import('leaflet').then(mod => setLeafletModule(mod.default));
+  }, []);
+
+  const updateMarker = useCallback((lat: number, lng: number) => {
+    if (!mapInstance.current || !leafletModule) return;
+    const L = leafletModule;
+
+    if (markerInstance.current) {
+      markerInstance.current.setLatLng([lat, lng]);
+    } else {
+      markerInstance.current = L.marker([lat, lng], { draggable: true }).addTo(mapInstance.current);
+      markerInstance.current.on('dragend', () => {
+        const pos = markerInstance.current.getLatLng();
+        handleLocationSelect(pos.lat, pos.lng);
+      });
+    }
+    mapInstance.current.setView([lat, lng], mapInstance.current.getZoom());
+  }, [leafletModule]);
+
+  useEffect(() => {
+    if (!deliveryInfo || !mapInstance.current || !leafletModule) return;
+
+    let cancelled = false;
+    const restLat = parseFloat(settings['restaurant_lat'] || '15.360035270551275');
+    const restLng = parseFloat(settings['restaurant_lng'] || '44.17484814594534');
+
+    setRouteLoading(true);
+    getDeliveryRoute(restLat, restLng, deliveryInfo.lat, deliveryInfo.lng)
+      .then(route => {
+        if (cancelled) return;
+        const L = leafletModule;
+
+        if (routeLineRef.current) {
+          routeLineRef.current.remove();
+          routeLineRef.current = null;
+        }
+
+        routeLineRef.current = L.polyline(route.coordinates, {
+          color: '#C59B5F',
+          weight: 3,
+          opacity: 0.8,
+        }).addTo(mapInstance.current);
+
+        const bounds = L.latLngBounds(
+          route.coordinates.map((coord: [number, number]) => L.latLng(coord[0], coord[1])),
+        );
+        mapInstance.current.fitBounds(bounds, { padding: [30, 30] });
+
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setRouteLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      if (routeLineRef.current) {
+        routeLineRef.current.remove();
+        routeLineRef.current = null;
+      }
+    };
+  }, [deliveryInfo, leafletModule, settings]);
+
+  const handleLocationSelect = async (lat: number, lng: number) => {
+    setLocationError('');
+    setLocationLoading(true);
+
+    updateMarker(lat, lng);
+
+    let addressSuggestion = '';
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=ar`,
+        { signal: AbortSignal.timeout(5000) },
+      );
+      if (res.ok) {
+        const geo = await res.json();
+        const parts: string[] = [];
+        if (geo.address?.suburb) parts.push(geo.address.suburb);
+        if (geo.address?.road) parts.push(geo.address.road);
+        if (geo.address?.neighbourhood) parts.push(geo.address.neighbourhood);
+        addressSuggestion = parts.join(' - ');
+      }
+    } catch {}
+
+    try {
+      const result = await calculateDeliveryFeeServer(lat, lng);
+      if (result.error) {
+        setLocationError(result.error);
+        setDeliveryInfo(null);
+      } else {
+        setDeliveryInfo({
+          lat,
+          lng,
+          fee: result.fee,
+          distanceKm: result.distanceKm,
+          addressSuggestion: addressSuggestion,
+        });
+      }
+    } catch (err: any) {
+      setLocationError('تعذر حساب رسوم التوصيل');
+      setDeliveryInfo(null);
+    }
+
+    setLocationLoading(false);
+  };
+
+  const detectLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError('متصفحك لا يدعم تحديد الموقع. يرجى اختيار الموقع من الخريطة');
+      return;
+    }
+
+    setLocationLoading(true);
+    setLocationError('');
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        handleLocationSelect(position.coords.latitude, position.coords.longitude);
+      },
+      (error) => {
+        setLocationLoading(false);
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            setLocationError('يرجى السماح بالوصول إلى موقعك أو اختيار الموقع من الخريطة');
+            break;
+          case error.POSITION_UNAVAILABLE:
+            setLocationError('تعذر تحديد موقعك. يرجى اختيار الموقع من الخريطة');
+            break;
+          case error.TIMEOUT:
+            setLocationError('انتهت مهلة تحديد الموقع. يرجى المحاولة مرة أخرى');
+            break;
+          default:
+            setLocationError('حدث خطأ في تحديد الموقع');
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+    );
+  };
+
+  const copyToClipboard = async (text: string, key: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedIndex(key);
+      setTimeout(() => setCopiedIndex(null), 2000);
+    } catch {}
+  };
+
+  const validateAddress = (addr: string): boolean => {
+    const trimmed = addr.trim();
+    if (trimmed.length < 10) {
+      setAddressError('يرجى إدخال عنوان توصيل دقيق (10 أحرف على الأقل)');
+      return false;
+    }
+    setAddressError('');
+    return true;
+  };
+
+  const createOrderAndRedirect = async (method: 'whatsapp' | 'website') => {
+    if (!deliveryInfo) {
+      setLocationError('يرجى تحديد موقع التوصيل أولاً');
+      return;
+    }
+    if (!validateAddress(customerInfo.address)) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const orderItems = cart.flatMap(item => {
+        if (item.isOffer && item.bundleItems && item.bundleItems.length > 0) {
+          return item.bundleItems.map(bi => ({
+            category_name: 'عروض',
+            item_name: bi.name,
+            size_label: bi.size || 'عادي',
+            quantity: bi.quantity * item.quantity,
+            unit_price: bi.price,
+            total_price: bi.price * bi.quantity * item.quantity,
+          }));
+        }
+        return [{
+          category_name: item.category || 'General',
+          item_name: item.name.split(' (')[0],
+          size_label: item.size || 'عادي',
+          quantity: item.quantity,
+          unit_price: item.price,
+          total_price: item.price * item.quantity,
+        }];
+      });
+
+      const offerCartItem = cart.find(ci => ci.isOffer);
+      const offerId = offerCartItem?.offerId;
+
+      let notesWithPayment = notes || '';
+      if (paymentMethod === 'wallet' && selectedWalletIdx !== null && wallets[selectedWalletIdx]) {
+        notesWithPayment += `\n[وسيلة الدفع: محفظة ${wallets[selectedWalletIdx].name} - ${wallets[selectedWalletIdx].number}]`;
+      } else if (paymentMethod === 'transfer' && selectedBankIdx !== null && banks[selectedBankIdx]) {
+        notesWithPayment += `\n[وسيلة الدفع: تحويل ${banks[selectedBankIdx].name} - ${banks[selectedBankIdx].account_number}]`;
+      } else if (paymentMethod === 'cash') {
+        notesWithPayment += '\n[وسيلة الدفع: نقداً عند الاستلام]';
+      }
+
+      const order = await createOrder({
+        customer_name: customerInfo.name.trim(),
+        customer_phone: customerInfo.phone.trim(),
+        delivery_address: customerInfo.address.trim(),
+        notes: notesWithPayment.trim() || undefined,
+        items: orderItems,
+        offer_id: offerId,
+        subtotal: cartTotal,
+        order_method: method,
+        payment_method: paymentMethod,
+        delivery_lat: deliveryInfo.lat,
+        delivery_lng: deliveryInfo.lng,
+      });
+
+      if (method === 'whatsapp') {
+        let message = `🍽️ *طلب جديد من ${settings['restaurant_name'] || 'بيت المندي'}*\n\n`;
+        cart.forEach((item, index) => {
+          message += `${index + 1}. ${item.name} × ${item.quantity} = *${item.price * item.quantity} ريال*\n`;
+        });
+        message += `\n━━━━━━━━━━━━━━\n`;
+        message += `💰 *الإجمالي: ${cartTotal} ريال*\n\n`;
+        message += `👤 *الاسم:* ${customerInfo.name}\n`;
+        message += `📞 *الهاتف:* ${customerInfo.phone}\n`;
+        if (customerInfo.address.trim()) message += `📍 *العنوان:* ${customerInfo.address.trim()}\n`;
+        if (notes) message += `📝 *ملاحظات:* ${notes}\n`;
+        message += `💳 *الدفع:* ${paymentMethod === 'cash' ? 'نقداً' : paymentMethod === 'wallet' ? 'محفظة' : 'تحويل بنكي'}`;
+
+        window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank');
+      }
+
+      clearCart();
+      router.push(`/t/${order.tracking_token}`);
+    } catch (err: any) {
+      console.error('[MyOrders] Order creation failed:', {
+        customer: customerInfo.name,
+        phone: customerInfo.phone,
+        itemsCount: cart.length,
+        error: err,
+      });
+      alert(err?.message || 'تعذّر إنشاء الطلب، يرجى المحاولة مرة أخرى.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleWebsiteSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const words = customerInfo.name.trim().split(/\s+/);
+    if (words.length < 2) { setNameError('يرجى إدخال الاسم الثنائي على الأقل'); return; }
+    if (!customerInfo.phone.trim()) return;
+    if (!deliveryInfo) { setLocationError('يرجى تحديد موقع التوصيل أولاً'); return; }
+    setNameError('');
+    createOrderAndRedirect('website');
   };
 
   const handleWhatsAppOrder = () => {
-    let message = '🍽️ *طلب جديد من بيت المندي*\n\n';
-    items.forEach((item, index) => {
-      message += `${index + 1}. ${item.name} × ${item.quantity} = *${item.price * item.quantity} ريال*\n`;
-    });
-    message += `\n━━━━━━━━━━━━━━\n`;
-    message += `💰 *الإجمالي: ${getCartTotal()} ريال*\n\n`;
-    message += `📝 ملاحظات: ${notes || 'لا توجد'}`;
-
-    const encoded = encodeURIComponent(message);
-    window.open(`https://wa.me/967779898617?text=${encoded}`, '_blank');
-    clearCart();
-    setShowOrderModal(false);
-  };
-
-  const handleWebsiteSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    // Validate name (3 words minimum)
-    const words = fullName.trim().split(/\s+/);
-    if (words.length < 2) {
-      setNameError('يرجى إدخال الاسم الثنائي على الأقل');
-      return;
-    }
-    if (!phone.trim()) return;
-    if (!address.trim()) return;
-
+    const words = customerInfo.name.trim().split(/\s+/);
+    if (words.length < 2) { setNameError('يرجى إدخال الاسم الثنائي على الأقل'); return; }
+    if (!customerInfo.phone.trim()) return;
+    if (!deliveryInfo) { setLocationError('يرجى تحديد موقع التوصيل أولاً'); return; }
     setNameError('');
-    setSubmitting(true);
-
-    const orderNumber = generateOrderNumber();
-    const totalAmount = getCartTotal();
-
-    try {
-      // Insert order into Supabase
-      const { data: orderData, error: orderError } = await supabase
-  .from('orders')
-.insert([{
-  order_number: orderNumber,
-
-  customer_name: fullName.trim(),
-  customer_phone: phone.trim(),
-  delivery_address: address.trim(),
-
-  notes: notes.trim() || null,
-
-  subtotal: totalAmount,
-  delivery_fee: 0,
-  tax_amount: 0,
-  total_amount: totalAmount,
-
-  order_method: 'website',
-
-  status: 'pending',
-  version: 1,
-}])
-  .select()
-  .single();
-
-      if (orderError) throw orderError;
-
-      // Insert order items
-      const orderItems = items.map(item => ({
-  order_id: orderData.id,
-
-  category_name: item.category || 'المندي',
-
-  item_name: item.name,
-
-  size_label: item.size || 'عادي',
-
-  quantity: item.quantity,
-
-  unit_price: item.price,
-
-  total_price: item.price * item.quantity,
-}));
-
-      const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
-      if (itemsError) throw itemsError;
-
-      // Send WhatsApp notification (send alongside DB order)
-      let waMessage = `🔔 *طلب جديد #${orderNumber}*\n\n`;
-      waMessage += `👤 *الاسم:* ${fullName}\n`;
-      waMessage += `📞 *الهاتف:* ${phone}\n`;
-      waMessage += `📍 *العنوان:* ${address}\n\n`;
-      waMessage += `🍽️ *الطلبات:*\n`;
-      items.forEach((item, i) => {
-        waMessage += `${i + 1}. ${item.name} × ${item.quantity} = ${item.price * item.quantity} ريال\n`;
-      });
-      waMessage += `\n━━━━━━━━━━━━━━\n💰 *الإجمالي: ${totalAmount} ريال*`;
-      if (notes) waMessage += `\n📝 ملاحظات: ${notes}`;
-
-      const encoded = encodeURIComponent(waMessage);
-      window.open(`https://wa.me/967779898617?text=${encoded}`, '_blank');
-
-      clearCart();
-      setOrderSuccess(orderNumber);
-      setShowOrderModal(false);
-
-    } catch (err: any) {
-      console.error('Order error:', err);
-      alert(`حدث خطأ أثناء إرسال الطلب: ${err.message || 'تعذّر الاتصال بالخادم'}. يمكنك الطلب عبر واتساب مباشرة.`);
-    } finally {
-      setSubmitting(false);
-    }
+    createOrderAndRedirect('whatsapp');
   };
 
-  if (!isClient) return null;
+  if (!mounted) return null;
 
-  // ─────────────────────────────────────
-  // SUCCESS SCREEN
-  // ─────────────────────────────────────
-  if (orderSuccess) {
-    return (
-      <div className="container" style={{ paddingTop: '80px', paddingBottom: '80px', minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div className="glass-panel" style={{ padding: '60px 40px', maxWidth: '560px', width: '100%', textAlign: 'center' }}>
-          <div style={{
-            width: '90px', height: '90px', background: 'linear-gradient(135deg, var(--gold-dark), var(--gold))',
-            borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 30px', color: 'var(--maroon-dark)',
-            boxShadow: '0 0 30px rgba(212,160,23,0.5)'
-          }}>
-            <CheckCircle size={48} />
-          </div>
-          <h2 className="title-gold" style={{ fontSize: '2rem', marginBottom: '15px' }}>تم استلام طلبك!</h2>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '30px', lineHeight: 1.7 }}>
-            شكراً لطلبك من بيت المندي. سيتواصل معك فريقنا في أقرب وقت لتأكيد الطلب.
-          </p>
-          <div style={{ background: 'var(--glass-bg)', border: '1px solid var(--gold)', borderRadius: '12px', padding: '20px', marginBottom: '35px' }}>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '8px' }}>رقم طلبك</p>
-            <div className="neon-text" style={{ fontSize: '1.8rem', fontWeight: 900, letterSpacing: '4px' }}>
-              {orderSuccess}
-            </div>
-          </div>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '30px' }}>
-            احتفظ بهذا الرقم لمتابعة حالة طلبك
-          </p>
-          <Link href="/" className="btn-primary" style={{ fontSize: '1.1rem', padding: '14px 40px' }}>
-            العودة للرئيسية
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  // ─────────────────────────────────────
-  // EMPTY CART
-  // ─────────────────────────────────────
-  if (items.length === 0) {
-    return (
-      <div className="container" style={{ paddingTop: '60px', paddingBottom: '80px', textAlign: 'center', minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-        <div className="glass-panel" style={{ padding: '60px 40px', maxWidth: '500px' }}>
-          <ShoppingBag size={64} style={{ color: 'var(--text-muted)', marginBottom: '20px' }} />
-          <h2 style={{ fontSize: '1.8rem', marginBottom: '12px' }}>سلتك فارغة</h2>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '30px' }}>لم تضف أي أطباق بعد. تفضّل بتصفح القائمة!</p>
-          <Link href="/menu" className="btn-primary" style={{ fontSize: '1.1rem', padding: '14px 36px' }}>
-            تصفح القائمة
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  // ─────────────────────────────────────
-  // CART CONTENTS
-  // ─────────────────────────────────────
   return (
-    <div className="container" style={{ paddingTop: '40px', paddingBottom: '100px' }}>
-      <h1 className="title-gold" style={{ fontSize: '2.5rem', marginBottom: '35px', textAlign: 'center' }}>سلة الطلبات</h1>
+    <main style={{ paddingTop: '100px', paddingBottom: '80px', minHeight: '100vh' }}>
+      <div className="container" style={{ maxWidth: '900px' }}>
+        <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)', marginBottom: '20px' }}>
+          <ArrowRight size={20} /> العودة للرئيسية
+        </Link>
 
-      <div className="flex flex-col lg:grid lg:grid-cols-[1fr_380px] gap-8 items-start w-full">
+        <h1 className="title-gold" style={{ fontSize: '2.5rem', marginBottom: '30px', textAlign: 'center' }}>طلباتي</h1>
 
-        {/* Items List */}
-        <div className="w-full flex flex-col gap-4">
-          {items.map(item => (
-            <div key={item.id} className="glass-card" style={{ display: 'flex', padding: '16px', alignItems: 'center', gap: '18px', flexWrap: 'wrap' }}>
-              {item.image ? (
-                <img src={item.image} alt={item.name} style={{ width: '75px', height: '75px', objectFit: 'cover', borderRadius: '12px', flexShrink: 0 }} />
-              ) : (
-                <div style={{ width: '75px', height: '75px', background: 'var(--glass-bg)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <span style={{ fontSize: '1.8rem' }}>🍽️</span>
-                </div>
-              )}
-
-              <div style={{ flex: '1 1 150px' }}>
-                <h3 style={{ fontSize: '1.1rem', marginBottom: '5px' }}>{item.name}</h3>
-                <div className="title-gold" style={{ fontWeight: 800, fontSize: '1.1rem' }}>{item.price} ريال</div>
-              </div>
-
-              {/* Quantity Controls */}
-              <div style={{ display: 'flex', alignItems: 'center', background: 'var(--glass-bg)', border: '1px solid var(--border)', borderRadius: '30px', overflow: 'hidden', flexShrink: 0 }}>
-                <button
-                  onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                  disabled={item.quantity <= 1}
-                  style={{ background: 'none', border: 'none', color: item.quantity <= 1 ? 'var(--text-muted)' : 'var(--text-primary)', padding: '10px 16px', cursor: item.quantity <= 1 ? 'not-allowed' : 'pointer', transition: 'color 0.2s' }}
-                >
-                  <Minus size={16} />
-                </button>
-                <span style={{ fontWeight: 800, minWidth: '28px', textAlign: 'center', fontSize: '1.1rem' }}>{item.quantity}</span>
-                <button
-                  onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                  style={{ background: 'var(--gold)', border: 'none', color: 'var(--maroon-dark)', padding: '10px 16px', cursor: 'pointer' }}
-                >
-                  <Plus size={16} />
-                </button>
-              </div>
-
-              {/* Subtotal */}
-              <div style={{ fontWeight: 800, fontSize: '1.15rem', minWidth: '80px', textAlign: 'center', color: 'var(--text-primary)' }}>
-                {item.price * item.quantity} ريال
-              </div>
-
-              {/* Remove */}
-              <button
-                onClick={() => handleDelete(item.id, item.name)}
-                style={{ background: 'rgba(239,68,68,0.1)', border: 'none', color: '#ef4444', width: '40px', height: '40px', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s', flexShrink: 0 }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(239,68,68,0.25)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'rgba(239,68,68,0.1)')}
-              >
-                <Trash2 size={18} />
-              </button>
-            </div>
-          ))}
-
-          <Link href="/menu" className="btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', alignSelf: 'flex-start', marginTop: '8px' }}>
-            <ArrowRight size={18} /> إضافة صنف آخر
-          </Link>
-        </div>
-
-        {/* Order Summary */}
-        <div className="glass-panel w-full p-6 md:p-8 sticky top-24">
-          <h3 style={{ fontSize: '1.4rem', marginBottom: '24px', borderBottom: '1px solid var(--border)', paddingBottom: '14px' }}>ملخص الطلب</h3>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
-            {items.map(item => (
-              <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>{item.name} × {item.quantity}</span>
-                <span>{item.price * item.quantity} ريال</span>
-              </div>
-            ))}
+        {cart.length === 0 ? (
+          <div className="glass-panel" style={{ padding: '50px 30px', textAlign: 'center', marginBottom: '30px' }}>
+            <ShoppingBag size={64} style={{ color: 'var(--text-muted)', margin: '0 auto 20px', opacity: 0.5 }} />
+            <h2 style={{ fontSize: '1.5rem', marginBottom: '10px' }}>سلتك فارغة</h2>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '25px' }}>لم تقم بإضافة أي أطباق بعد.</p>
+            <Link href="/menu" className="btn-primary" style={{ padding: '14px 36px' }}>
+              تصفح قائمة الطعام
+            </Link>
           </div>
+        ) : (
+          <>
+            <div className="glass-panel" style={{ padding: '28px', marginBottom: '30px' }}>
+              <h3 style={{ fontSize: '1.4rem', marginBottom: '24px', borderBottom: '1px solid var(--border)', paddingBottom: '14px', color: 'var(--gold)' }}>
+                إتمام الطلب
+              </h3>
 
-          <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', color: 'var(--text-secondary)' }}>
-              <span>المجموع الفرعي</span>
-              <span>{getCartTotal()} ريال</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-              <span>التوصيل</span>
-              <span style={{ color: '#10b981' }}>يحدد لاحقاً</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', fontSize: '1.3rem', fontWeight: 900 }}>
-              <span>الإجمالي</span>
-              <span className="title-gold">{getCartTotal()} ريال</span>
-            </div>
-            <button onClick={() => setShowOrderModal(true)} className="btn-primary" style={{ width: '100%', fontSize: '1.1rem', padding: '15px', justifyContent: 'center' }}>
-              المتابعة للطلب
-            </button>
-          </div>
-        </div>
-      </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '24px' }}>
+                {cart.map(item => (
+                  <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'var(--glass-bg)', borderRadius: '10px', gap: '12px', flexWrap: 'wrap' }}>
+                    <div style={{ flex: 1, minWidth: '120px' }}>
+                      <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{item.name}</span>
+                      <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginRight: '8px' }}>× {item.quantity}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span className="title-gold" style={{ fontWeight: 700, fontSize: '0.95rem' }}>{item.price * item.quantity} {currency}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                        <button type="button" onClick={() => updateQuantity(item.id, item.quantity - 1)} style={{ background: 'none', border: 'none', color: 'var(--text-primary)', padding: '6px 10px', cursor: 'pointer' }}><Minus size={14} /></button>
+                        <span style={{ padding: '0 8px', fontWeight: 'bold', width: '24px', textAlign: 'center', fontSize: '0.9rem' }}>{item.quantity}</span>
+                        <button type="button" onClick={() => updateQuantity(item.id, item.quantity + 1)} style={{ background: 'none', border: 'none', color: 'var(--text-primary)', padding: '6px 10px', cursor: 'pointer' }}><Plus size={14} /></button>
+                      </div>
+                      <button type="button" onClick={() => removeFromCart(item.id)} style={{ background: 'rgba(239,68,68,0.1)', border: 'none', color: '#ef4444', borderRadius: '8px', padding: '6px', cursor: 'pointer', display: 'flex' }}><Trash2 size={16} /></button>
+                    </div>
+                  </div>
+                ))}
+                <Link href="/menu" className="btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', alignSelf: 'flex-start', fontSize: '0.85rem', padding: '8px 16px' }}>
+                  <Plus size={14} /> إضافة المزيد
+                </Link>
+              </div>
 
-      {/* ─── ORDER METHOD MODAL ─── */}
-      {showOrderModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[2000] flex items-center justify-center p-4">
-          <div className="glass-panel w-full max-w-[520px] max-h-[90vh] overflow-y-auto p-6 md:p-9 bg-[var(--bg-panel)]">
-
-            {!orderMethod ? (
-              <>
-                <h3 style={{ fontSize: '1.6rem', marginBottom: '8px', textAlign: 'center' }}>اختر طريقة الطلب</h3>
-                <p style={{ color: 'var(--text-secondary)', textAlign: 'center', marginBottom: '28px', fontSize: '0.95rem' }}>
-                  يمكنك الطلب عبر واتساب أو ملء بياناتك للتوصيل
-                </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  <button
-                    onClick={handleWhatsAppOrder}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '16px', background: '#25D366', color: '#fff', border: 'none', borderRadius: '14px', fontSize: '1.1rem', fontWeight: 700, cursor: 'pointer', transition: 'opacity 0.2s' }}
-                    onMouseEnter={e => (e.currentTarget.style.opacity = '0.9')}
-                    onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
-                  >
-                    <MessageCircle size={24} /> الطلب عبر واتساب
-                  </button>
-                  <button
-                    onClick={() => setOrderMethod('website')}
-                    className="btn-secondary"
-                    style={{ padding: '16px', justifyContent: 'center', fontSize: '1.05rem' }}
-                  >
-                    <Globe size={20} /> إدخال بيانات التوصيل
-                  </button>
-                  <button
-                    onClick={() => setShowOrderModal(false)}
-                    style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', padding: '10px', cursor: 'pointer', fontSize: '0.95rem' }}
-                  >
-                    إلغاء
-                  </button>
-                </div>
-              </>
-            ) : (
               <form onSubmit={handleWebsiteSubmit}>
-                <h3 style={{ fontSize: '1.5rem', marginBottom: '24px', textAlign: 'center' }}>بيانات التوصيل</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '6px', color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 600 }}>الاسم الكامل *</label>
+                    <input type="text" className="form-input" value={customerInfo.name} onChange={e => setCustomerInfo({ ...customerInfo, name: e.target.value })} placeholder="الاسم الثنائي" required />
+                    {nameError && <p style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '4px' }}>{nameError}</p>}
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '6px', color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 600 }}>رقم الهاتف *</label>
+                    <input type="tel" className="form-input" value={customerInfo.phone} onChange={e => setCustomerInfo({ ...customerInfo, phone: e.target.value })} placeholder="77XXXXXXX" required style={{ direction: 'ltr', textAlign: 'right' }} />
+                  </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '7px', color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 600 }}>الاسم الكامل *</label>
-                    <input type="text" className="form-input" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="الاسم الثنائي على الأقل" required />
-                    {nameError && <p style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '5px' }}>{nameError}</p>}
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 600 }}>
+                      <MapPin size={14} style={{ marginLeft: '6px', verticalAlign: 'middle' }} /> موقع التوصيل *
+                    </label>
+
+                    <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
+                      <button
+                        type="button"
+                        onClick={detectLocation}
+                        disabled={locationLoading}
+                        className="btn-primary"
+                        style={{ flex: 1, padding: '10px', fontSize: '0.85rem', justifyContent: 'center' }}
+                      >
+                        <Crosshair size={16} /> {locationLoading ? 'جاري تحديد الموقع...' : '📍 تحديد موقعي الحالي'}
+                      </button>
+                    </div>
+
+                    <div
+                      ref={mapRef}
+                      style={{
+                        width: '100%',
+                        height: '250px',
+                        borderRadius: '12px',
+                        overflow: 'hidden',
+                        border: '1px solid var(--border)',
+                        marginBottom: '12px',
+                      }}
+                    />
+
+                    {locationLoading && (
+                      <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '8px' }}>
+                        جاري حساب رسوم التوصيل...
+                      </p>
+                    )}
+
+                    {locationError && (
+                      <p style={{ color: '#ef4444', fontSize: '0.85rem', marginBottom: '8px', padding: '8px 12px', background: 'rgba(239,68,68,0.08)', borderRadius: '8px' }}>
+                        {locationError}
+                      </p>
+                    )}
+
+                    {routeLoading && (
+                      <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginBottom: '8px', padding: '6px 12px', background: 'rgba(197,155,95,0.08)', borderRadius: '8px', textAlign: 'center' }}>
+                        جاري تحميل مسار التوصيل...
+                      </p>
+                    )}
+
+                    {deliveryInfo && !locationError && (
+                      <div style={{
+                        background: 'rgba(16,185,129,0.06)',
+                        border: '1px solid rgba(16,185,129,0.2)',
+                        borderRadius: '10px',
+                        padding: '12px',
+                        marginBottom: '12px',
+                      }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.85rem' }}>
+                          <div>
+                            <span style={{ color: 'var(--text-muted)' }}>المسافة: </span>
+                            <strong>{deliveryInfo.distanceKm} كم</strong>
+                          </div>
+                          <div>
+                            <span style={{ color: 'var(--text-muted)' }}>رسوم التوصيل: </span>
+                            <strong style={{ color: 'var(--gold)' }}>{deliveryInfo.fee > 0 ? `${deliveryInfo.fee} ${currency}` : 'مجاناً'}</strong>
+                          </div>
+                        </div>
+                        {deliveryInfo.addressSuggestion && (
+                          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(16,185,129,0.15)' }}>
+                            <MapPin size={12} style={{ marginLeft: '4px', verticalAlign: 'middle' }} />
+                            {deliveryInfo.addressSuggestion}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem', marginBottom: '8px' }}>
+                      اختر موقعك على الخريطة أو استخدم الزر أعلاه لتحديد موقعك تلقائياً
+                    </p>
+
+                    <label style={{ display: 'block', marginBottom: '6px', color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 600 }}>
+                      عنوان التوصيل *
+                    </label>
+                    <textarea
+                      className="form-input"
+                      value={customerInfo.address}
+                      onChange={e => { setCustomerInfo({ ...customerInfo, address: e.target.value }); setAddressError(''); }}
+                      placeholder="مثال: شارع الزبيري، بجوار جامع الخير، الدور الثاني"
+                      rows={2}
+                    />
+                    {addressError && <p style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '4px' }}>{addressError}</p>}
+                    <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '2px', display: 'block' }}>
+                      يمكنك تعديل العنوان المقترح أو كتابة عنوان دقيق (10 أحرف على الأقل)
+                    </small>
                   </div>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '7px', color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 600 }}>رقم الهاتف *</label>
-                    <input type="tel" className="form-input" value={phone} onChange={e => setPhone(e.target.value)} placeholder="77XXXXXXX" required />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '7px', color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 600 }}>عنوان التوصيل *</label>
-                    <textarea className="form-input" value={address} onChange={e => setAddress(e.target.value)} placeholder="الحي، الشارع، المبنى، أقرب معلم" rows={3} required />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '7px', color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 600 }}>ملاحظات إضافية</label>
-                    <input type="text" className="form-input" value={notes} onChange={e => setNotes(e.target.value)} placeholder="مثال: لا أريد بصلاً، طرق الباب مرتين..." />
+
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label style={{ display: 'block', marginBottom: '6px', color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 600 }}>ملاحظات</label>
+                    <input type="text" className="form-input" value={notes} onChange={e => setNotes(e.target.value)} placeholder="مثال: لا أريد بصلاً" />
                   </div>
                 </div>
 
-                {/* Order Summary inside modal */}
-                <div style={{ background: 'var(--glass-bg)', border: '1px solid var(--border)', borderRadius: '12px', padding: '14px', marginBottom: '20px', fontSize: '0.9rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, color: 'var(--gold)' }}>
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', marginBottom: '10px', color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 600 }}>
+                    <Wallet size={14} style={{ marginLeft: '6px', verticalAlign: 'middle' }} /> وسيلة الدفع
+                  </label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '10px', border: paymentMethod === 'cash' ? '2px solid var(--gold)' : '1px solid var(--border)', cursor: 'pointer', background: paymentMethod === 'cash' ? 'rgba(197,155,95,0.05)' : 'transparent' }}>
+                      <input type="radio" name="payment" checked={paymentMethod === 'cash'} onChange={() => setPaymentMethod('cash')} style={{ accentColor: 'var(--gold)' }} />
+                      <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>نقداً عند الاستلام</span>
+                    </label>
+
+                    {wallets.length > 0 && (
+                      <div style={{ padding: '10px 14px', borderRadius: '10px', border: paymentMethod === 'wallet' ? '2px solid var(--gold)' : '1px solid var(--border)', background: paymentMethod === 'wallet' ? 'rgba(197,155,95,0.05)' : 'transparent' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', marginBottom: paymentMethod === 'wallet' ? '8px' : 0 }}>
+                          <input type="radio" name="payment" checked={paymentMethod === 'wallet'} onChange={() => setPaymentMethod('wallet')} style={{ accentColor: 'var(--gold)' }} />
+                          <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>محفظة إلكترونية</span>
+                        </label>
+                        {paymentMethod === 'wallet' && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            {wallets.map((w, i) => (
+                              <div key={i} onClick={() => setSelectedWalletIdx(i)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', padding: '8px 10px', borderRadius: '8px', cursor: 'pointer', background: selectedWalletIdx === i ? 'rgba(197,155,95,0.1)' : 'var(--glass-bg)', border: selectedWalletIdx === i ? '1px solid var(--gold)' : '1px solid var(--border)' }}>
+                                <div>
+                                  <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{w.name}</div>
+                                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontFamily: 'monospace', direction: 'ltr', textAlign: 'right' }}>{w.number}</div>
+                                </div>
+                                <button type="button" onClick={(e) => { e.stopPropagation(); copyToClipboard(w.number, `w-${i}`); }} style={{ background: 'rgba(197,155,95,0.12)', border: 'none', color: 'var(--gold)', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                                  <Copy size={12} /> {copiedIndex === `w-${i}` ? 'تم' : 'نسخ'}
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {banks.length > 0 && (
+                      <div style={{ padding: '10px 14px', borderRadius: '10px', border: paymentMethod === 'transfer' ? '2px solid var(--gold)' : '1px solid var(--border)', background: paymentMethod === 'transfer' ? 'rgba(197,155,95,0.05)' : 'transparent' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', marginBottom: paymentMethod === 'transfer' ? '8px' : 0 }}>
+                          <input type="radio" name="payment" checked={paymentMethod === 'transfer'} onChange={() => setPaymentMethod('transfer')} style={{ accentColor: 'var(--gold)' }} />
+                          <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>تحويل بنكي</span>
+                        </label>
+                        {paymentMethod === 'transfer' && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            {banks.map((b, i) => (
+                              <div key={i} onClick={() => setSelectedBankIdx(i)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', padding: '8px 10px', borderRadius: '8px', cursor: 'pointer', background: selectedBankIdx === i ? 'rgba(197,155,95,0.1)' : 'var(--glass-bg)', border: selectedBankIdx === i ? '1px solid var(--gold)' : '1px solid var(--border)' }}>
+                                <div>
+                                  <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{b.name}</div>
+                                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontFamily: 'monospace', direction: 'ltr', textAlign: 'right' }}>{b.account_number}</div>
+                                </div>
+                                <button type="button" onClick={(e) => { e.stopPropagation(); copyToClipboard(b.account_number, `b-${i}`); }} style={{ background: 'rgba(197,155,95,0.12)', border: 'none', color: 'var(--gold)', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                                  <Copy size={12} /> {copiedIndex === `b-${i}` ? 'تم' : 'نسخ'}
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ background: 'var(--glass-bg)', border: '1px solid var(--border)', borderRadius: '12px', padding: '14px', marginBottom: '20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                    <span>المجموع الفرعي</span>
+                    <span>{cartTotal} {currency}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                    <span>رسوم التوصيل</span>
+                    <span style={{ color: 'var(--gold)' }}>
+                      {deliveryInfo ? (
+                        deliveryInfo.fee > 0 ? `${deliveryInfo.fee} ${currency}` : 'مجاناً'
+                      ) : (
+                        <span style={{ color: 'var(--text-muted)' }}>يُحدد بعد اختيار الموقع</span>
+                      )}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, color: 'var(--gold)', borderTop: '1px solid var(--border)', paddingTop: '10px', fontSize: '1.1rem' }}>
                     <span>الإجمالي</span>
-                    <span>{getCartTotal()} ريال</span>
+                    <span>{deliveryInfo ? `${totalWithDelivery} ${currency}` : `${cartTotal} ${currency}`}</span>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '12px' }}>
-                  <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: 'center', fontSize: '1.05rem' }} disabled={submitting}>
-                    {submitting ? 'جاري الإرسال...' : '✓ تأكيد الطلب'}
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <button
+                    type="submit"
+                    className="btn-primary"
+                    disabled={loading || !deliveryInfo}
+                    style={{ flex: 1, minWidth: '180px', justifyContent: 'center', padding: '14px', opacity: (!deliveryInfo && !loading) ? 0.6 : 1 }}
+                  >
+                    {loading ? 'جاري الإرسال...' : '✓ تأكيد الطلب'}
                   </button>
-                  <button type="button" onClick={() => setOrderMethod(null)} className="btn-secondary" style={{ padding: '12px 20px' }}>
-                    رجوع
+                  <button
+                    type="button"
+                    onClick={handleWhatsAppOrder}
+                    disabled={loading || !deliveryInfo}
+                    style={{
+                      flex: 1, minWidth: '180px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px',
+                      background: '#25D366', color: '#fff', border: 'none', borderRadius: '14px', fontSize: '1rem', fontWeight: 700, cursor: 'pointer',
+                      opacity: (!deliveryInfo && !loading) ? 0.6 : 1,
+                    }}
+                  >
+                    <MessageCircle size={20} /> طلب عبر واتساب
                   </button>
                 </div>
-
-                <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '14px' }}>
-                  سيتم إرسال إشعار واتساب تلقائياً بعد تأكيد الطلب
-                </p>
               </form>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
+            </div>
+          </>
+        )}
+      </div>
+    </main>
   );
 }

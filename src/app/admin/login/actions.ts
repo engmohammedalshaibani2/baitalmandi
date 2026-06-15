@@ -10,17 +10,18 @@ export async function login(formData: FormData) {
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return cookieStore.getAll()
+        get(name: string) {
+          return cookieStore.get(name)?.value ?? null
         },
-        setAll(cookiesToSet) {
-          console.log('[auth:action:login] setAll called', { cookiesToSet })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
-          )
+        set(name: string, value: string, options: any) {
+          console.log('[auth:action:login] set called', { name, value })
+          cookieStore.set(name, value, options)
+        },
+        remove(name: string, _options: any) {
+          cookieStore.delete(name)
         },
       },
     }
@@ -39,35 +40,6 @@ export async function login(formData: FormData) {
     return { error: error.message }
   }
 
-  // Manually write session cookies before redirect
-  if (data.session) {
-    const { access_token, refresh_token, expires_at } = data.session
-    const maxAge = expires_at ? Math.floor((expires_at * 1000 - Date.now()) / 1000) : 3600
-    
-    // Use Supabase's expected cookie names
-    const projectRef = process.env.NEXT_PUBLIC_SUPABASE_URL!.split('//')[1].split('.')[0]
-    const authTokenName = `sb-${projectRef}-auth-token`
-    const refreshTokenName = `sb-${projectRef}-auth-token.0`
-
-    cookieStore.set(authTokenName, access_token, {
-      path: '/',
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge,
-    })
-
-    cookieStore.set(refreshTokenName, refresh_token, {
-      path: '/',
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 365,
-    })
-    
-    console.log('[auth:action:login] Wrote cookies before redirect', { authTokenName, refreshTokenName })
-  }
-
   redirect('/admin/dashboard')
 }
 
@@ -76,15 +48,12 @@ export async function logout() {
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() { return cookieStore.getAll() },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
-          )
-        },
+        get(name: string) { return cookieStore.get(name)?.value ?? null },
+        set(name: string, value: string, options: any) { cookieStore.set(name, value, options) },
+        remove(name: string, _options: any) { cookieStore.delete(name) },
       },
     }
   )

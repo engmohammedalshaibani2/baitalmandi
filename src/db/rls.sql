@@ -19,7 +19,7 @@ ALTER TABLE branches ENABLE ROW LEVEL SECURITY;
 -- دوال مساعدة للتحقق من الصلاحيات بأمان (Security Definer)
 CREATE OR REPLACE FUNCTION is_admin() RETURNS boolean AS $$
 BEGIN
-  RETURN EXISTS (SELECT 1 FROM admin_users WHERE id = auth.uid());
+  RETURN EXISTS (SELECT 1 FROM admin_users WHERE auth_user_id = auth.uid());
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -27,7 +27,7 @@ CREATE OR REPLACE FUNCTION get_admin_role() RETURNS text AS $$
 DECLARE
   admin_role text;
 BEGIN
-  SELECT role INTO admin_role FROM admin_users WHERE id = auth.uid();
+  SELECT role INTO admin_role FROM admin_users WHERE auth_user_id = auth.uid();
   RETURN admin_role;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -53,7 +53,7 @@ CREATE POLICY "Developers can manage admin_users" ON admin_users USING (is_admin
 DO $$
 DECLARE
   table_name text;
-  tables text[] := ARRAY['categories', 'items', 'item_prices', 'offers', 'gallery_images', 'reviews', 'site_settings', 'branches'];
+  tables text[] := ARRAY['categories', 'items', 'item_prices', 'offers', 'gallery_images', 'site_settings', 'branches'];
 BEGIN
   FOREACH table_name IN ARRAY tables LOOP
     EXECUTE format('CREATE POLICY "Public can read %I" ON %I FOR SELECT USING (true);', table_name, table_name);
@@ -62,6 +62,15 @@ BEGIN
   END LOOP;
 END
 $$;
+
+-- ========================================================
+-- Reviews: السماح للجميع بإضافة تقييمات + قراءة التقييمات المعتمدة
+-- ========================================================
+CREATE POLICY "Public can read reviews" ON reviews FOR SELECT USING (true);
+-- السماح لأي زائر بإضافة تقييم (بدون تسجيل دخول)
+CREATE POLICY "Anyone can insert reviews" ON reviews FOR INSERT WITH CHECK (true);
+-- الإدارة فقط يمكنها تعديل أو حذف التقييمات
+CREATE POLICY "Admins can manage reviews" ON reviews USING (is_admin() AND get_admin_role() IN ('developer', 'manager'));
 
 -- ========================================================
 -- 7 & 8. cart_sessions & cart_items
@@ -95,4 +104,11 @@ CREATE POLICY "Admins can view all order items" ON order_items FOR SELECT USING 
 -- ========================================================
 -- 12. order_status_history
 -- ========================================================
-CREATE POLICY "Admins can view and insert order_status_history" ON order_status_history USING (is_admin());
+CREATE POLICY "Admins can view order_status_history" ON order_status_history FOR SELECT USING (is_admin());
+CREATE POLICY "Admins can insert order_status_history" ON order_status_history FOR INSERT WITH CHECK (is_admin());
+
+-- ========================================================
+-- 13. audit_logs
+-- ========================================================
+CREATE POLICY "Admins can view audit_logs" ON audit_logs FOR SELECT USING (is_admin());
+CREATE POLICY "Admins can insert audit_logs" ON audit_logs FOR INSERT WITH CHECK (is_admin());

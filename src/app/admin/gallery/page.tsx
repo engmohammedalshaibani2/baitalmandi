@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Trash2, Plus, Upload } from 'lucide-react';
+import { Trash2, Plus, Upload, Home } from 'lucide-react';
+import { getNextSortOrder, reindexSortOrders } from '@/lib/ordering';
 
 export default function AdminGalleryPage() {
   const [images, setImages] = useState<any[]>([]);
@@ -19,9 +20,38 @@ export default function AdminGalleryPage() {
     setLoading(false);
   }
 
+  const getGallerySortOrder = async (manualOrder: number): Promise<{ sortOrder: number; needsReindex: boolean }> => {
+    if (manualOrder > 0) return { sortOrder: manualOrder, needsReindex: true };
+    const next = await getNextSortOrder('gallery_images', 'prepend');
+    console.log('[GALLERY_ORDER_AUTO_ASSIGNED]', { newOrder: next.sortOrder, needsReindex: next.needsReindex });
+    return next;
+  };
+
+  const insertGalleryImage = async (url: string) => {
+    const parsedOrder = parseInt(order);
+    const { sortOrder, needsReindex } = await getGallerySortOrder(parsedOrder);
+
+    if (needsReindex) {
+      await reindexSortOrders('gallery_images');
+      console.log('[GALLERY_ORDER_REINDEXED]', { reason: parsedOrder > 0 ? 'manual_order' : 'prepend_shift' });
+    }
+
+    if (parsedOrder > 0) {
+      console.log('[GALLERY_ORDER_MANUAL_OVERRIDE]', { newOrder: parsedOrder });
+    }
+
+    await supabase.from('gallery_images').insert([{
+      image_url: url,
+      category: category || 'عام',
+      sort_order: sortOrder,
+      is_active: true,
+      show_on_homepage: false,
+    }]);
+  };
+
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    await supabase.from('gallery_images').insert([{ image_url: imageUrl, category: category || 'عام', sort_order: parseInt(order), is_active: true }]);
+    await insertGalleryImage(imageUrl);
     setImageUrl(''); setCategory(''); setOrder('0');
     await fetchImages();
   };
@@ -38,15 +68,8 @@ export default function AdminGalleryPage() {
       if (uploadError) throw uploadError;
 
       const { data } = supabase.storage.from('gellary').getPublicUrl(fileName);
-      
-      const { error: dbError } = await supabase.from('gallery_images').insert([{
-        image_url: data.publicUrl,
-        category: category || 'عام',
-        sort_order: parseInt(order),
-        is_active: true
-      }]);
-      if (dbError) throw dbError;
 
+      await insertGalleryImage(data.publicUrl);
       await fetchImages();
     } catch (err: any) {
       alert('حدث خطأ: ' + err.message);
@@ -59,6 +82,20 @@ export default function AdminGalleryPage() {
       await supabase.from('gallery_images').delete().eq('id', id);
       await fetchImages();
     }
+  };
+
+  const handleToggleHomepage = async (id: string, current: boolean) => {
+    const next = !current;
+    const { error } = await supabase.from('gallery_images').update({ show_on_homepage: next }).eq('id', id);
+    if (error) {
+      alert('حدث خطأ: ' + error.message);
+      return;
+    }
+    setImages(prev => prev.map(img => img.id === id ? { ...img, show_on_homepage: next } : img));
+    console.log('[HOMEPAGE_GALLERY_UPDATED]', {
+      selectedImagesCount: images.filter(i => i.id === id ? next : i.show_on_homepage).length,
+      updatedBy: 'admin',
+    });
   };
 
   return (
@@ -121,7 +158,7 @@ export default function AdminGalleryPage() {
         {loading ? <p>جاري التحميل...</p> : images.map(img => (
           <div key={img.id} style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', aspectRatio: '1', border: '1px solid var(--border)' }}>
             <img src={img.image_url} alt={img.category || 'صورة المطعم'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0)', transition: 'background 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0)', transition: 'background 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
               onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.5)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0)')}
             >
@@ -132,6 +169,16 @@ export default function AdminGalleryPage() {
             {img.category && (
               <span style={{ position: 'absolute', top: '8px', right: '8px', background: 'var(--maroon)', color: '#fff', padding: '2px 8px', borderRadius: '6px', fontSize: '0.75rem' }}>{img.category}</span>
             )}
+            <label style={{ position: 'absolute', bottom: '8px', left: '8px', display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(0,0,0,0.6)', color: '#fff', padding: '4px 8px', borderRadius: '6px', fontSize: '0.7rem', cursor: 'pointer', userSelect: 'none' }}>
+              <input
+                type="checkbox"
+                checked={img.show_on_homepage || false}
+                onChange={() => handleToggleHomepage(img.id, img.show_on_homepage || false)}
+                style={{ accentColor: 'var(--gold)' }}
+              />
+              <Home size={12} />
+              الرئيسية
+            </label>
           </div>
         ))}
       </div>

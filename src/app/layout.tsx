@@ -4,6 +4,7 @@ import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import LoadingScreen from '@/components/layout/LoadingScreen';
 import { SettingsProvider } from '@/lib/settings-context';
+import { ToastProvider } from '@/components/ui/Toast';
 
 /* ── SEO Metadata ── */
 export const metadata: Metadata = {
@@ -61,12 +62,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body suppressHydrationWarning style={{ paddingTop: '72px', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         <SettingsProvider>
-          <LoadingScreen />
-          <Navbar />
-          <main style={{ flex: 1 }}>
-            {children}
-          </main>
-          <Footer />
+          <ToastProvider>
+            <LoadingScreen />
+            <Navbar />
+            <main style={{ flex: 1 }}>
+              {children}
+            </main>
+            <Footer />
+          </ToastProvider>
         </SettingsProvider>
       </body>
     </html>

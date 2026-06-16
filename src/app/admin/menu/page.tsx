@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Plus, Edit2, Trash2, Save, X, ChevronDown, ChevronUp, DollarSign, Package, Upload } from 'lucide-react';
 import { useSettings } from '@/lib/settings-context';
+import { getNextSortOrder, reindexSortOrders, shiftSortOrdersUp } from '@/lib/ordering';
 
 export default function MenuPage() {
   const { settings } = useSettings();
@@ -50,6 +51,20 @@ export default function MenuPage() {
     setSaving(true);
 
     try {
+      let sortOrder = form.sort_order;
+      const isManualOrder = sortOrder !== 0;
+
+      if (!isManualOrder) {
+        const next = await getNextSortOrder('items', 'append', 'category_id', form.category_id);
+        sortOrder = next.sortOrder;
+        console.log('[MENU_ORDER_AUTO_GENERATED]', {
+          itemName: form.name_ar,
+          categoryId: form.category_id,
+          newOrder: sortOrder,
+          orderingStrategy: 'append',
+        });
+      }
+
       const payload = {
         category_id: form.category_id || null,
         name_ar: form.name_ar,
@@ -59,17 +74,44 @@ export default function MenuPage() {
         image: form.image || null,
         is_available: form.is_available,
         is_best_seller: form.is_best_seller,
-        sort_order: form.sort_order
+        sort_order: sortOrder,
       };
 
       let currentItemId = editingId;
 
       if (editingId) {
+        const { data: oldItem } = await supabase.from('items').select('sort_order, category_id').eq('id', editingId).single();
         await supabase.from('items').update(payload).eq('id', editingId);
+
+        if (isManualOrder && oldItem && oldItem.category_id !== form.category_id) {
+          await reindexSortOrders('items', 'category_id', oldItem.category_id);
+        }
+        if (isManualOrder) {
+          console.log('[MENU_ORDER_MANUAL_OVERRIDE]', {
+            itemId: editingId,
+            categoryId: form.category_id,
+            previousOrder: oldItem?.sort_order,
+            newOrder: sortOrder,
+          });
+        }
       } else {
+        if (isManualOrder) {
+          await shiftSortOrdersUp('items', 'category_id', form.category_id);
+          console.log('[MENU_ORDER_MANUAL_OVERRIDE]', {
+            itemName: form.name_ar,
+            categoryId: form.category_id,
+            newOrder: sortOrder,
+            orderingStrategy: 'manual',
+          });
+        }
+
         const { data: newItem, error } = await supabase.from('items').insert([payload]).select().single();
         if (error) throw error;
         currentItemId = newItem.id;
+      }
+
+      if (isManualOrder) {
+        await reindexSortOrders('items', 'category_id', form.category_id);
       }
 
       // Handle prices

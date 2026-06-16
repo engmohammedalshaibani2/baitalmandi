@@ -233,6 +233,7 @@ export const galleryImages = pgTable('gallery_images', {
   category: text('category'),
   sortOrder: integer('sort_order').default(0).notNull(),
   isActive: boolean('is_active').default(true).notNull(),
+  showOnHomepage: boolean('show_on_homepage').default(false).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 

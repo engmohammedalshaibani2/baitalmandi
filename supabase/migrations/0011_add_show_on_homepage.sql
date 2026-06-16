@@ -1,0 +1,2 @@
+ALTER TABLE gallery_images
+ADD COLUMN show_on_homepage BOOLEAN DEFAULT FALSE NOT NULL;

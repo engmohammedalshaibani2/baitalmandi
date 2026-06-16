@@ -7,8 +7,10 @@ import { useCartStore } from '@/store/cartStore';
 import { useSettings } from '@/lib/settings-context';
 import { createOrder, calculateDeliveryFeeServer } from '@/actions/orders';
 import { Trash2, Plus, Minus, ArrowRight, MessageCircle, CheckCircle, ShoppingBag, Copy, Wallet, MapPin, Crosshair } from 'lucide-react';
-import { getDeliveryRoute } from '@/lib/maps/getDeliveryRoute';
+import { getDeliveryRoutes } from '@/lib/maps/getDeliveryRoute';
 import { validateYemeniPhone, validateFullName, validateDeliveryAddress } from '@/lib/validation';
+import { buildWhatsAppOrderMessage, formatOrderDate, getArabicStatus } from '@/lib/whatsapp-message';
+import { useToast } from '@/components/ui/Toast';
 
 import 'leaflet/dist/leaflet.css';
 
@@ -26,6 +28,7 @@ interface DeliveryInfo {
 export default function MyOrdersPage() {
   const router = useRouter();
   const { settings } = useSettings();
+  const { showToast } = useToast();
   const whatsappNumber = settings['whatsapp_order_number'] || settings['phone_delivery_whatsapp'] || '967779898617';
   const minOrderAmount = parseInt(settings['min_order_amount']) || 0;
   const currency = settings['currency'] || 'ريال';
@@ -61,6 +64,7 @@ export default function MyOrdersPage() {
   const markerInstance = useRef<any>(null);
   const restaurantMarkerRef = useRef<any>(null);
   const routeLineRef = useRef<any>(null);
+  const altRouteLinesRef = useRef<any[]>([]);
   const [mapReady, setMapReady] = useState(false);
   const [routeLoading, setRouteLoading] = useState(false);
 
@@ -139,6 +143,8 @@ export default function MyOrdersPage() {
         routeLineRef.current.remove();
         routeLineRef.current = null;
       }
+      altRouteLinesRef.current.forEach(line => line.remove());
+      altRouteLinesRef.current = [];
       if (restaurantMarkerRef.current) {
         restaurantMarkerRef.current.remove();
         restaurantMarkerRef.current = null;
@@ -179,27 +185,50 @@ export default function MyOrdersPage() {
     const restLng = parseFloat(settings['restaurant_lng'] || '44.17484814594534');
 
     setRouteLoading(true);
-    getDeliveryRoute(restLat, restLng, deliveryInfo.lat, deliveryInfo.lng)
-      .then(route => {
+    getDeliveryRoutes(restLat, restLng, deliveryInfo.lat, deliveryInfo.lng)
+      .then(result => {
         if (cancelled) return;
         const L = leafletModule;
+        const map = mapInstance.current;
+        const allCoords: [number, number][] = [];
 
         if (routeLineRef.current) {
           routeLineRef.current.remove();
           routeLineRef.current = null;
         }
+        altRouteLinesRef.current.forEach(line => line.remove());
+        altRouteLinesRef.current = [];
 
-        routeLineRef.current = L.polyline(route.coordinates, {
-          color: '#C59B5F',
-          weight: 3,
-          opacity: 0.8,
-        }).addTo(mapInstance.current);
+        if (result.primary && result.primary.coordinates.length >= 2) {
+          routeLineRef.current = L.polyline(result.primary.coordinates, {
+            color: '#10b981',
+            weight: 4,
+            opacity: 0.85,
+          }).addTo(map);
+          allCoords.push(...result.primary.coordinates);
+        }
 
-        const bounds = L.latLngBounds(
-          route.coordinates.map((coord: [number, number]) => L.latLng(coord[0], coord[1])),
-        );
-        mapInstance.current.fitBounds(bounds, { padding: [30, 30] });
+        const altColors = ['#3b82f6', '#6366f1'];
+        result.alternatives.forEach((alt, idx) => {
+          if (alt.coordinates.length >= 2) {
+            const color = altColors[idx % altColors.length];
+            const line = L.polyline(alt.coordinates, {
+              color,
+              weight: 2.5,
+              opacity: 0.5,
+              dashArray: '8, 6',
+            }).addTo(map);
+            altRouteLinesRef.current.push(line);
+            allCoords.push(...alt.coordinates);
+          }
+        });
 
+        if (allCoords.length > 0) {
+          const bounds = L.latLngBounds(
+            allCoords.map((coord: [number, number]) => L.latLng(coord[0], coord[1])),
+          );
+          map.fitBounds(bounds, { padding: [30, 30] });
+        }
       })
       .catch(() => {})
       .finally(() => {
@@ -212,6 +241,8 @@ export default function MyOrdersPage() {
         routeLineRef.current.remove();
         routeLineRef.current = null;
       }
+      altRouteLinesRef.current.forEach(line => line.remove());
+      altRouteLinesRef.current = [];
     };
   }, [deliveryInfo, leafletModule, settings]);
 
@@ -312,8 +343,9 @@ export default function MyOrdersPage() {
     if (!phoneValid.valid) errors.phone = phoneValid.error!;
     if (!addrValid.valid) errors.address = addrValid.error!;
 
-    if (minOrderAmount > 0 && cartTotal < minOrderAmount) {
-      errors.minAmount = `الحد الأدنى للطلب هو ${minOrderAmount} ${currency}`;
+    const clientTotalWithDelivery = cartTotal + (deliveryInfo?.fee || 0);
+    if (minOrderAmount > 0 && clientTotalWithDelivery < minOrderAmount) {
+      errors.minAmount = `الحد الأدنى للطلب هو ${minOrderAmount} ${currency}. إجمالي الطلب مع التوصيل: ${clientTotalWithDelivery} ${currency}`;
     }
 
     if (Object.keys(errors).length > 0) {
@@ -384,23 +416,80 @@ export default function MyOrdersPage() {
         delivery_lng: deliveryInfo.lng,
       });
 
-      if (method === 'whatsapp') {
-        let message = `🍽️ *طلب جديد من ${settings['restaurant_name'] || 'بيت المندي'}*\n\n`;
-        cart.forEach((item, index) => {
-          message += `${index + 1}. ${item.name} × ${item.quantity} = *${item.price * item.quantity} ${currency}*\n`;
-        });
-        message += `\n━━━━━━━━━━━━━━\n`;
-        message += `💰 *الإجمالي: ${cartTotal} ${currency}*\n\n`;
-        message += `👤 *الاسم:* ${customerInfo.name}\n`;
-        message += `📞 *الهاتف:* ${customerInfo.phone}\n`;
-        if (customerInfo.address.trim()) message += `📍 *العنوان:* ${customerInfo.address.trim()}\n`;
-        if (notes) message += `📝 *ملاحظات:* ${notes}\n`;
-        message += `💳 *الدفع:* ${paymentMethod === 'cash' ? 'نقداً' : paymentMethod === 'wallet' ? 'محفظة' : 'تحويل بنكي'}`;
+      const isPaidPayment = paymentMethod === 'wallet' || paymentMethod === 'transfer';
+      const shouldSendWhatsApp = method === 'whatsapp' || (method === 'website' && isPaidPayment);
 
-        window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank');
+      if (shouldSendWhatsApp) {
+        const paymentInfo = {
+          method: paymentMethod,
+          walletName: paymentMethod === 'wallet' && selectedWalletIdx !== null ? wallets[selectedWalletIdx]?.name : undefined,
+          walletNumber: paymentMethod === 'wallet' && selectedWalletIdx !== null ? wallets[selectedWalletIdx]?.number : undefined,
+          bankName: paymentMethod === 'transfer' && selectedBankIdx !== null ? banks[selectedBankIdx]?.name : undefined,
+          bankAccount: paymentMethod === 'transfer' && selectedBankIdx !== null ? banks[selectedBankIdx]?.account_number : undefined,
+          bankHolder: paymentMethod === 'transfer' && selectedBankIdx !== null ? banks[selectedBankIdx]?.account_holder : undefined,
+        };
+
+        const orderItemsList = cart.flatMap(item => {
+          if (item.isOffer && item.bundleItems) {
+            return item.bundleItems.map(bi => ({
+              name: bi.name,
+              size: bi.size || 'عادي',
+              quantity: bi.quantity * item.quantity,
+              totalPrice: bi.price * bi.quantity * item.quantity,
+            }));
+          }
+          return [{
+            name: item.name.split(' (')[0],
+            size: item.size || 'عادي',
+            quantity: item.quantity,
+            totalPrice: item.price * item.quantity,
+          }];
+        });
+
+        const trackingOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+        const whatsappUrl = buildWhatsAppOrderMessage({
+          restaurantName: settings['restaurant_name'] || 'بيت المندي',
+          whatsappNumber,
+          order: {
+            orderNumber: order.order_number,
+            createdAt: formatOrderDate(order.created_at),
+            status: getArabicStatus(order.status),
+            trackingUrl: `${trackingOrigin}/t/${order.tracking_token}`,
+          },
+          customer: {
+            name: customerInfo.name.trim(),
+            phone: customerInfo.phone.trim(),
+            address: customerInfo.address.trim(),
+          },
+          items: orderItemsList,
+          payment: paymentInfo,
+          financials: {
+            subtotal: cartTotal,
+            deliveryFee: deliveryInfo.fee,
+            discounts: 0,
+            total: cartTotal + deliveryInfo.fee,
+            currency,
+          },
+        });
+
+        console.log('[WHATSAPP_ORDER_MESSAGE_GENERATED]', {
+          orderId: order.id,
+          paymentMethod,
+          messageLength: whatsappUrl.length,
+          redirectStatus: 'triggered',
+        });
+
+        window.open(whatsappUrl, '_blank');
+        console.log('[WHATSAPP_REDIRECT_TRIGGERED]', {
+          orderId: order.id,
+          paymentMethod,
+          messageLength: whatsappUrl.length,
+          redirectStatus: 'success',
+        });
       }
 
       clearCart();
+      showToast('success', 'تم إنشاء الطلب بنجاح', `رقم الطلب: ${order.order_number}`);
       router.push(`/t/${order.tracking_token}`);
     } catch (err: any) {
       console.error('[MyOrders] Order creation failed:', {
@@ -409,7 +498,7 @@ export default function MyOrdersPage() {
         itemsCount: cart.length,
         error: err,
       });
-      alert(err?.message || 'تعذّر إنشاء الطلب، يرجى المحاولة مرة أخرى.');
+      showToast('error', 'فشل إنشاء الطلب', err?.message || 'تعذّر إنشاء الطلب، يرجى المحاولة مرة أخرى.');
     } finally {
       setLoading(false);
     }

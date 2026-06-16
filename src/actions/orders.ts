@@ -2,7 +2,7 @@
 
 import { createClient } from '@/utils/supabase/server';
 import { calculateOfferPrice } from '@/lib/offer-pricing';
-import { isInsideSanaa, haversineDistance, MAX_DELIVERY_RADIUS_KM } from '@/lib/location-validation';
+import { haversineDistance, MAX_DELIVERY_RADIUS_KM } from '@/lib/location-validation';
 import { calculateRoute, estimateRoadDistance, estimateDuration } from '@/lib/delivery-routing';
 import { calculateDeliveryFee, parseDeliverySettings } from '@/lib/delivery-pricing';
 import { validateYemeniPhone, normalizeYemeniPhone } from '@/lib/validation';
@@ -200,10 +200,6 @@ export async function createOrder(input: CreateOrderInput) {
     deliveryLat = input.delivery_lat;
     deliveryLng = input.delivery_lng;
 
-    if (!isInsideSanaa(deliveryLat, deliveryLng)) {
-      throw new Error('عذراً، خدمة التوصيل متاحة داخل محافظة صنعاء فقط');
-    }
-
     if (settingsMap['delivery_enabled'] === 'false') {
       throw new Error('خدمة التوصيل غير متاحة حالياً');
     }
@@ -223,20 +219,32 @@ export async function createOrder(input: CreateOrderInput) {
     }
 
     const maxDist = parseFloat(settingsMap['max_delivery_distance_km']) || MAX_DELIVERY_RADIUS_KM;
-    if (deliveryDistanceKm > maxDist) {
-      throw new Error(`أقصى مسافة للتوصيل هي ${maxDist} كم. المسافة الحالية ${deliveryDistanceKm} كم`);
+    const calculatedDistance = Math.round(deliveryDistanceKm! * 100) / 100;
+
+    console.log('[DELIVERY_DISTANCE_VALIDATION]', JSON.stringify({
+      restaurantCoordinates: { lat: restLat, lng: restLng },
+      customerCoordinates: { lat: deliveryLat, lng: deliveryLng },
+      calculatedDistance,
+      maxDeliveryDistance: maxDist,
+      validationResult: calculatedDistance <= maxDist ? 'PASS' : 'FAIL',
+    }));
+
+    if (calculatedDistance > maxDist) {
+      throw new Error(`خدمة التوصيل متاحة حتى ${maxDist} كم فقط. المسافة الحالية: ${calculatedDistance} كم.`);
     }
 
     // Calculate delivery fee using new pricing system
     const pricingSettings = parseDeliverySettings(settingsMap);
     const feeResult = calculateDeliveryFee({
-      distanceKm: deliveryDistanceKm,
+      distanceKm: calculatedDistance,
       settings: pricingSettings,
     });
 
     if (feeResult.exceedsMaxDistance) {
-      throw new Error(`أقصى مسافة للتوصيل هي ${pricingSettings.maxDeliveryDistanceKm} كم. المسافة الحالية ${deliveryDistanceKm} كم`);
+      throw new Error(`خدمة التوصيل متاحة حتى ${pricingSettings.maxDeliveryDistanceKm} كم فقط. المسافة الحالية: ${calculatedDistance} كم.`);
     }
+
+    deliveryDistanceKm = calculatedDistance;
 
     deliveryFeeNumeric = feeResult.fee;
     deliveryDistanceKm = feeResult.distanceKm;
@@ -348,9 +356,25 @@ export async function createOrder(input: CreateOrderInput) {
     validatedTotalAmount = validatedSubtotal + deliveryFeeNumeric;
   }
 
-  if (minOrderAmount > 0 && validatedSubtotal < minOrderAmount) {
+  const finalPayableAmount = validatedTotalAmount;
+  const discountAmount = Math.max(0, input.subtotal - validatedSubtotal);
+
+  console.log('[MIN_ORDER_CALCULATION]', JSON.stringify({
+    productsTotal: validatedSubtotal,
+    deliveryFee: deliveryFeeNumeric,
+    discounts: discountAmount,
+    finalTotal: finalPayableAmount,
+    minOrderAmount,
+    currency,
+    validationResult: finalPayableAmount >= minOrderAmount ? 'PASS' : 'FAIL',
+  }));
+
+  if (minOrderAmount > 0 && finalPayableAmount < minOrderAmount) {
     console.log('[MIN_ORDER_VALIDATION]', JSON.stringify({
-      orderTotal: validatedSubtotal,
+      orderTotal: finalPayableAmount,
+      productsTotal: validatedSubtotal,
+      deliveryFee: deliveryFeeNumeric,
+      discountAmount,
       minOrderAmount,
       currency,
       result: 'REJECTED',
@@ -358,7 +382,7 @@ export async function createOrder(input: CreateOrderInput) {
       customerPhone: input.customer_phone,
       offerId: input.offer_id || null,
     }));
-    throw new Error(`الحد الأدنى للطلب هو ${minOrderAmount} ${currency} ولا يمكن إنشاء طلب بأقل من ذلك`);
+    throw new Error(`الحد الأدنى للطلب هو ${minOrderAmount} ${currency}. إجمالي الطلب: ${finalPayableAmount} ${currency}`);
   }
 
   let cleanNotes = input.notes || '';
@@ -567,20 +591,15 @@ export async function calculateDeliveryFeeServer(lat: number, lng: number): Prom
   fee: number;
   distanceKm: number;
   durationMin: number;
-  insideSanaa: boolean;
   exceedsMaxDistance: boolean;
   error?: string;
 }> {
   const supabase = await createClient();
 
-  if (!isInsideSanaa(lat, lng)) {
-    return { fee: 0, distanceKm: 0, durationMin: 0, insideSanaa: false, exceedsMaxDistance: false, error: 'عذراً، خدمة التوصيل متاحة داخل محافظة صنعاء فقط' };
-  }
-
   const { settings: settingsMap, restLat, restLng } = await fetchDeliverySettings(supabase);
 
   if (settingsMap['delivery_enabled'] === 'false') {
-    return { fee: 0, distanceKm: 0, durationMin: 0, insideSanaa: true, exceedsMaxDistance: false, error: 'خدمة التوصيل غير متاحة حالياً' };
+    return { fee: 0, distanceKm: 0, durationMin: 0, exceedsMaxDistance: false, error: 'خدمة التوصيل غير متاحة حالياً' };
   }
 
   const roadFactor = parseFloat(settingsMap['road_factor']) || 1.5;
@@ -600,38 +619,42 @@ export async function calculateDeliveryFeeServer(lat: number, lng: number): Prom
   }
 
   const maxDist = parseFloat(settingsMap['max_delivery_distance_km']) || MAX_DELIVERY_RADIUS_KM;
-  if (distanceKm > maxDist) {
-    return { fee: 0, distanceKm, durationMin, insideSanaa: true, exceedsMaxDistance: true, error: `أقصى مسافة للتوصيل هي ${maxDist} كم` };
+  const calculatedDistance = Math.round(distanceKm * 100) / 100;
+
+  console.log('[DELIVERY_DISTANCE_VALIDATION]', JSON.stringify({
+    restaurantCoordinates: { lat: restLat, lng: restLng },
+    customerCoordinates: { lat, lng },
+    calculatedDistance,
+    maxDeliveryDistance: maxDist,
+    validationResult: calculatedDistance <= maxDist ? 'PASS' : 'FAIL',
+  }));
+
+  if (calculatedDistance > maxDist) {
+    return {
+      fee: 0, distanceKm: calculatedDistance, durationMin,
+      exceedsMaxDistance: true,
+      error: `خدمة التوصيل متاحة حتى ${maxDist} كم فقط. المسافة الحالية: ${calculatedDistance} كم.`,
+    };
   }
 
   const pricingSettings = parseDeliverySettings(settingsMap);
   const feeResult = calculateDeliveryFee({
-    distanceKm,
+    distanceKm: calculatedDistance,
     settings: pricingSettings,
   });
 
   if (feeResult.exceedsMaxDistance) {
-    return { fee: 0, distanceKm, durationMin, insideSanaa: true, exceedsMaxDistance: true, error: `أقصى مسافة للتوصيل هي ${pricingSettings.maxDeliveryDistanceKm} كم` };
+    return {
+      fee: 0, distanceKm: calculatedDistance, durationMin,
+      exceedsMaxDistance: true,
+      error: `خدمة التوصيل متاحة حتى ${pricingSettings.maxDeliveryDistanceKm} كم فقط. المسافة الحالية: ${calculatedDistance} كم.`,
+    };
   }
-
-  console.log('[DELIVERY_DEBUG]', JSON.stringify({
-    restaurantLat: restLat,
-    restaurantLng: restLng,
-    customerLat: lat,
-    customerLng: lng,
-    haversineKm: Math.round(straightLineKm * 100) / 100,
-    osrmDistanceKm: distanceKm,
-    durationMin,
-    fee: feeResult.fee,
-    weatherFeeApplied: feeResult.weatherFeeApplied,
-    peakFeeApplied: feeResult.peakFeeApplied,
-  }));
 
   return {
     fee: feeResult.fee,
-    distanceKm,
+    distanceKm: calculatedDistance,
     durationMin,
-    insideSanaa: true,
     exceedsMaxDistance: false,
   };
 }

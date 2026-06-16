@@ -5,6 +5,8 @@ import { supabase } from '@/lib/supabase';
 import { useSettings } from '@/lib/settings-context';
 import { Save, MapPin, Truck, CloudSun, Clock, ToggleLeft, ToggleRight, CalendarDays } from 'lucide-react';
 
+import 'leaflet/dist/leaflet.css';
+
 const SETTINGS_KEYS = [
   'restaurant_lat',
   'restaurant_lng',
@@ -106,9 +108,12 @@ export default function AdminDeliveryPage() {
         shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
       });
 
+      const restLat = parseFloat(settings.restaurant_lat);
+      const restLng = parseFloat(settings.restaurant_lng);
+
       const map = L.map(el, {
-        center: [15.3547, 44.2067],
-        zoom: 13,
+        center: [restLat || 15.360035270551275, restLng || 44.17484814594534],
+        zoom: 15,
         zoomControl: false,
       });
 
@@ -122,18 +127,23 @@ export default function AdminDeliveryPage() {
       map.on('click', (e: any) => {
         const lat = e.latlng.lat.toFixed(10);
         const lng = e.latlng.lng.toFixed(10);
+        console.log('[DELIVERY_MAP_INIT] Map clicked:', { lat, lng });
         setSettings(prev => ({ ...prev, restaurant_lat: String(lat), restaurant_lng: String(lng) }));
         updateMarkerPos(e.latlng.lat, e.latlng.lng, L);
       });
 
       mapInstance.current = map;
 
-      const curLat = parseFloat(settings.restaurant_lat);
-      const curLng = parseFloat(settings.restaurant_lng);
-      if (curLat && curLng) {
-        updateMarkerPos(curLat, curLng, L);
-        map.setView([curLat, curLng], 15);
+      if (restLat && restLng) {
+        updateMarkerPos(restLat, restLng, L);
       }
+
+      console.log('[DELIVERY_MAP_INIT] Map loaded:', {
+        lat: restLat,
+        lng: restLng,
+        mapLoaded: true,
+        markerStatus: restLat && restLng ? 'initialized' : 'pending',
+      });
 
       setMapReady(true);
     };
@@ -149,16 +159,39 @@ export default function AdminDeliveryPage() {
     };
   }, [initialized]);
 
+  useEffect(() => {
+    if (!mapReady || !mapInstance.current) return;
+
+    const lat = parseFloat(settings.restaurant_lat);
+    const lng = parseFloat(settings.restaurant_lng);
+    if (!lat || !lng) return;
+
+    const updateMap = async () => {
+      const L = (await import('leaflet')).default;
+      updateMarkerPos(lat, lng, L);
+      console.log('[RESTAURANT_LOCATION_UPDATED]', { lat, lng, mapReady: true });
+    };
+    updateMap();
+  }, [settings.restaurant_lat, settings.restaurant_lng, mapReady]);
+
   const updateMarkerPos = useCallback((lat: number, lng: number, L?: any) => {
     const leaflet = L || (window as any).L;
     if (!mapInstance.current || !leaflet) return;
 
+    const goldIcon = leaflet.divIcon({
+      html: '<div style="background:#C59B5F;color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.3)">🏪</div>',
+      className: '',
+      iconSize: [32, 32],
+      iconAnchor: [16, 16],
+    });
+
     if (markerInstance.current) {
       markerInstance.current.setLatLng([lat, lng]);
     } else {
-      markerInstance.current = leaflet.marker([lat, lng], { draggable: true }).addTo(mapInstance.current);
+      markerInstance.current = leaflet.marker([lat, lng], { icon: goldIcon, draggable: true }).addTo(mapInstance.current);
       markerInstance.current.on('dragend', () => {
         const pos = markerInstance.current.getLatLng();
+        console.log('[MARKER_DRAGGED]', { lat: pos.lat, lng: pos.lng });
         setSettings(prev => ({
           ...prev,
           restaurant_lat: String(pos.lat.toFixed(10)),

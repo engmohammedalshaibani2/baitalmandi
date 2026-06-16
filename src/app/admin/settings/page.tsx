@@ -35,7 +35,6 @@ const DEFAULT_SETTINGS: SettingItem[] = [
   { key: 'phone_delivery_call', value: '967775577200', description: 'رقم اتصال التوصيل' },
   { key: 'address_main', value: 'صنعاء - نهاية شارع الرباط، بداية شارع الستين', description: 'عنوان الفرع الرئيسي' },
   { key: 'working_hours', value: 'يومياً من 11:00 صباحاً حتى 12:00 منتصف الليل', description: 'مواعيد العمل' },
-  { key: 'delivery_fee', value: '0', description: 'رسوم التوصيل الافتراضية (ريال)' },
   { key: 'min_order_amount', value: '30', description: 'الحد الأدنى للطلب (ريال)' },
   { key: 'whatsapp_order_number', value: '967779898617', description: 'رقم واتساب لاستقبال الطلبات' },
   { key: 'currency', value: 'ريال', description: 'العملة المستخدمة' },
@@ -164,7 +163,7 @@ export default function AdminSettingsPage() {
     {
       title: 'إعدادات التوصيل',
       icon: Truck,
-      keys: ['delivery_fee', 'min_order_amount'],
+      keys: ['min_order_amount'],
     },
     {
       title: 'واتساب',
@@ -231,9 +230,6 @@ export default function AdminSettingsPage() {
                       value={savedSettings[setting.key] ?? setting.value}
                       onChange={e => handleChange(setting.key, e.target.value)}
                     />
-                    <small style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>
-                      المفتاح: <code style={{ background: 'var(--glass-bg)', padding: '1px 6px', borderRadius: '4px' }}>{setting.key}</code>
-                    </small>
                   </div>
                 ))}
               </div>

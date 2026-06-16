@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Plus, Edit2, Trash2, Save, X } from 'lucide-react';
+import { getNextSortOrder, reindexSortOrders } from '@/lib/ordering';
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<any[]>([]);
@@ -51,21 +52,66 @@ export default function CategoriesPage() {
     e.preventDefault();
     setLoading(true);
 
-    const payload = {
-      name_ar: nameAr,
-      name_en: nameEn || nameAr,
-      slug: (nameEn || nameAr).toLowerCase().replace(/[^a-z0-9]+/gi, '-') + '-' + Date.now(),
-      sort_order: parseInt(order),
-      is_active: isActive,
-    };
+    const parsedOrder = parseInt(order);
+    const isManualOrder = !isEditing && parsedOrder > 0;
+
+    let sortOrder = parsedOrder;
 
     try {
       if (isEditing && editingId) {
+        const { data: oldCat } = await supabase.from('categories').select('sort_order').eq('id', editingId).single();
+        const payload = {
+          name_ar: nameAr,
+          name_en: nameEn || nameAr,
+          slug: (nameEn || nameAr).toLowerCase().replace(/[^a-z0-9]+/gi, '-') + '-' + Date.now(),
+          sort_order: parsedOrder,
+          is_active: isActive,
+        };
         const { error } = await supabase.from('categories').update(payload).eq('id', editingId);
         if (error) throw error;
+
+        if (parsedOrder > 0 && oldCat && oldCat.sort_order !== parsedOrder) {
+          console.log('[CATEGORY_ORDER_MANUAL_OVERRIDE]', {
+            categoryId: editingId,
+            previousOrder: oldCat.sort_order,
+            newOrder: parsedOrder,
+          });
+          await reindexSortOrders('categories');
+        }
       } else {
+        if (!isManualOrder) {
+          const next = await getNextSortOrder('categories', 'prepend');
+          sortOrder = next.sortOrder;
+          if (next.needsReindex) {
+            await reindexSortOrders('categories');
+          }
+          console.log('[CATEGORY_ORDER_AUTO_INSERT]', {
+            categoryName: nameAr,
+            newOrder: sortOrder,
+          });
+        } else {
+          console.log('[CATEGORY_ORDER_MANUAL_OVERRIDE]', {
+            categoryName: nameAr,
+            newOrder: sortOrder,
+          });
+        }
+
+        const payload = {
+          name_ar: nameAr,
+          name_en: nameEn || nameAr,
+          slug: (nameEn || nameAr).toLowerCase().replace(/[^a-z0-9]+/gi, '-') + '-' + Date.now(),
+          sort_order: sortOrder,
+          is_active: isActive,
+        };
         const { error } = await supabase.from('categories').insert([payload]);
         if (error) throw error;
+
+        if (isManualOrder) {
+          await reindexSortOrders('categories');
+          console.log('[CATEGORY_ORDER_REINDEXED]', {
+            reason: 'manual_order_insert',
+          });
+        }
       }
       resetForm();
       await fetchCategories();

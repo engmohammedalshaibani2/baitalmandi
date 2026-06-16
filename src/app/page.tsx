@@ -1,9 +1,13 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
 import { useSettings } from '@/lib/settings-context';
+import { calculateOfferPrice, resolveItemPrice } from '@/lib/offer-pricing';
+import { fetchHomepageGalleryImages } from '@/lib/homepage-gallery';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Phone, MapPin, ChevronLeft, Pause, Play, Award, Clock, Truck, Users, CheckCircle, Smile, UtensilsCrossed, Star } from 'lucide-react';
 
 const WhatsAppIcon = ({ size = 24, color = "currentColor" }) => (
@@ -25,6 +29,9 @@ export default function Home() {
   const deliveryCallDisplay = phoneDeliveryCall.replace(/^967/, '');
   const [offers, setOffers] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
+  const [galleryImages, setGalleryImages] = useState<any[]>([]);
+  const [activeGalleryIndex, setActiveGalleryIndex] = useState(0);
+  const [galleryError, setGalleryError] = useState(false);
   const [isMarqueePaused, setIsMarqueePaused] = useState(false);
   const [counters, setCounters] = useState({ orders: 0, customers: 0, years: 0 });
 
@@ -52,21 +59,54 @@ export default function Home() {
     return () => clearInterval(timer);
   }, []);
 
+  // Auto-rotate gallery images every 10s (only if more than 1)
+  useEffect(() => {
+    if (galleryImages.length <= 1) return;
+    const interval = setInterval(() => {
+      setActiveGalleryIndex(prev => (prev + 1) % galleryImages.length);
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [galleryImages.length]);
+
+  const handleGalleryImageError = useCallback(() => {
+    // Skip to next image on load failure
+    if (galleryImages.length > 1) {
+      setActiveGalleryIndex(prev => (prev + 1) % galleryImages.length);
+    } else {
+      setGalleryError(true);
+    }
+  }, [galleryImages.length]);
+
   async function fetchData() {
-    const [{ data: offersData }, { data: reviewsData }] = await Promise.all([
-      supabase.from('offers').select('*, items(name_ar, image, item_prices(*))').eq('status', 'active').order('created_at', { ascending: false }).limit(6),
+    const now = new Date().toISOString();
+    const [{ data: offersData }, { data: reviewsData }, galleryData] = await Promise.all([
+      supabase.from('offers').select(`
+        *,
+        offer_items(*, menu_item:menu_item_id(*, item_prices(*)))
+      `)
+        .eq('status', 'active')
+        .eq('is_active', true)
+        .is('deleted_at', null)
+        .lte('start_date', now)
+        .gte('end_date', now)
+        .order('created_at', { ascending: false })
+        .limit(6),
       supabase.from('reviews').select('*').eq('is_featured', true).order('created_at', { ascending: false }).limit(6),
+      fetchHomepageGalleryImages(),
     ]);
 
     if (offersData && offersData.length > 0) {
+      // [OFFERS_SOURCE_UNIFIED] Single source: offers + offer_items + menu_item join
+      console.log('[OFFERS_SOURCE_UNIFIED] Source: offers via offer_items(*, menu_item:menu_item_id(*, item_prices(*)))');
+      console.log('[OFFERS_SOURCE_UNIFIED] Previous source: offers via items(name_ar, image, item_prices(*))');
+      console.log('[OFFERS_SOURCE_UNIFIED] Affected components: HomeCarousel, MenuOffersSection');
       setOffers(offersData);
     } else {
-      // Fallback demo offers
-      setOffers([
-        { id: 1, title_ar: 'وجبة نفر مندي لحم', discount_percent: 20, items: { name_ar: 'نفر مندي لحم', item_prices: [{ original_price: 80 }] }, image: 'https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&q=80&w=300&h=200' },
-        { id: 2, title_ar: 'دجاج مظبي مع الرز', discount_percent: 22, items: { name_ar: 'دجاج مظبي', item_prices: [{ original_price: 45 }] }, image: 'https://images.unsplash.com/photo-1598514982205-f36b96d1e8d4?auto=format&fit=crop&q=80&w=300&h=200' },
-        { id: 3, title_ar: 'وجبة التوفير العائلية', discount_percent: 20, items: { name_ar: 'وجبة العائلة', item_prices: [{ original_price: 150 }] }, image: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&q=80&w=300&h=200' },
-      ]);
+      setOffers([]);
+    }
+
+    if (galleryData && galleryData.length > 0) {
+      setGalleryImages(galleryData);
     }
 
     if (reviewsData && reviewsData.length > 0) {
@@ -80,8 +120,71 @@ export default function Home() {
     }
   }
 
-  const getDiscountedPrice = (price: number, discount: number) =>
-    Math.floor(price * (1 - discount / 100));
+  const offersWithPricing = useMemo(() => {
+    const result = offers.map(offer => {
+      const bundleItems = (offer.offer_items || []).map((oi: any) => {
+        const menuItem = oi.menu_item;
+        const prices = menuItem?.item_prices || [];
+        let unitPrice = oi.unit_price ? Number(oi.unit_price) : 0;
+        if (unitPrice === 0 && prices.length > 0) {
+          const resolved = resolveItemPrice(prices, oi.price_id || undefined);
+          unitPrice = resolved.effectivePrice;
+        }
+        return {
+          itemId: menuItem?.id || '',
+          itemName: menuItem?.name_ar || '',
+          quantity: oi.quantity,
+          unitPrice,
+          priceId: oi.price_id || '',
+          variantName: oi.variant_name || '',
+          sizeLabel: oi.variant_name || (prices.length > 0 ? prices[0]?.size_label_ar : undefined),
+          categoryName: '',
+          image: menuItem?.image || '',
+        };
+      });
+
+      const pricingInput = {
+        offerType: offer.offer_type || 'percentage_discount',
+        salePrice: offer.sale_price ? Number(offer.sale_price) : undefined,
+        discountPercent: offer.discount_percent || undefined,
+        discountAmount: offer.discount_amount ? Number(offer.discount_amount) : undefined,
+        items: bundleItems,
+      };
+      const pricing = calculateOfferPrice(pricingInput);
+
+      // [OFFERS_DATA_SYNCED] Verify data fields for each offer in the carousel
+      console.log('[OFFERS_DATA_SYNCED]', {
+        sourceComponent: 'HomeCarousel',
+        offerId: offer.id,
+        dataFieldsVerified: {
+          price: pricing.finalPrice,
+          original_price: pricing.originalPrice,
+          discount: pricing.discountPercent,
+        },
+      });
+
+      return { ...offer, _pricing: pricing, _bundleItems: bundleItems };
+    });
+    return result;
+  }, [offers]);
+
+  // Log gallery slide changes
+  useEffect(() => {
+    if (galleryImages.length === 0) return;
+    const prevId = galleryImages[(activeGalleryIndex - 1 + galleryImages.length) % galleryImages.length]?.id;
+    const currentId = galleryImages[activeGalleryIndex]?.id;
+    const albumTitle = galleryImages[activeGalleryIndex]?.category || galleryImages[activeGalleryIndex]?.caption_ar || 'بيت المندي';
+    console.log('[HOMEPAGE_SLIDE_CHANGED]', {
+      previousImageId: prevId,
+      currentImageId: currentId,
+      albumTitle,
+    });
+  }, [activeGalleryIndex, galleryImages]);
+
+  // [OFFERS_CAROUSEL_FIXED] Trace the fix details
+  console.log('[OFFERS_CAROUSEL_FIXED] Fixed Fields: price display, original price display');
+  console.log('[OFFERS_CAROUSEL_FIXED] Previous Issue: NaN, undefined (from items.name_ar, item_prices[0]?.original_price)');
+  console.log('[OFFERS_CAROUSEL_FIXED] Resolution: Unified query to use offer_items + menu_item join, use calculateOfferPrice()');
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -197,7 +300,7 @@ export default function Home() {
       </section>
 
       {/* ━━━━━━━ OFFERS MARQUEE ━━━━━━━ */}
-      {offers.length > 0 && (
+      {offersWithPricing.length > 0 && (
         <section style={{ position: 'relative', overflow: 'hidden', padding: '60px 0 40px', background: 'rgba(212, 160, 23, 0.03)' }}>
           <div className="container" style={{ marginBottom: '25px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
@@ -221,29 +324,33 @@ export default function Home() {
 
           <div className="marquee-container" style={{ direction: 'ltr' }}>
             <div className={isMarqueePaused ? 'marquee-track paused' : 'marquee-track'} style={{ direction: 'rtl' }}>
-              {[...offers, ...offers].map((offer, idx) => (
+              {[...offersWithPricing, ...offersWithPricing].map((offer, idx) => {
+                const p = offer._pricing;
+                return (
                 <Link href="/menu#offers" key={`${offer.id}-${idx}`} style={{ textDecoration: 'none' }}>
                   <div className="glass-panel flex gap-4 p-4 min-w-[300px] md:min-w-[340px] items-center transition-transform transition-colors duration-300 cursor-pointer hover:-translate-y-1 hover:border-[rgba(212,160,23,0.5)]">
-                    {(offer.image || offer.image_url) && (
-                      <img src={offer.image || offer.image_url} alt={offer.title_ar} className="w-20 h-20 md:w-24 md:h-24 object-cover rounded-xl shrink-0" />
+                    {offer.image && (
+                      <img src={offer.image} alt={offer.title_ar} className="w-20 h-20 md:w-24 md:h-24 object-cover rounded-xl shrink-0" />
                     )}
                     <div>
                       <h3 className="text-lg mb-1">{offer.title_ar}</h3>
                       <div className="flex gap-2 items-center flex-wrap">
-                        <span className="line-through text-[var(--text-muted)] text-sm">
-                          {offer.items?.item_prices?.[0]?.original_price} {currency}
-                        </span>
+                        {p.originalPrice > p.finalPrice && (
+                          <span className="line-through text-[var(--text-muted)] text-sm">
+                            {p.originalPrice} {currency}
+                          </span>
+                        )}
                         <span className="neon-text text-xl font-extrabold">
-                          {getDiscountedPrice(offer.items?.item_prices?.[0]?.original_price, offer.discount_percent)} {currency}
+                          {p.finalPrice} {currency}
                         </span>
                       </div>
                       <span className="inline-block mt-2 bg-[var(--maroon)] text-white px-2.5 py-1 rounded-md text-xs font-bold">
-                        خصم {offer.discount_percent}%
+                        خصم {p.discountPercent}%
                       </span>
                     </div>
                   </div>
                 </Link>
-              ))}
+              )})}
             </div>
           </div>
         </section>
@@ -294,16 +401,49 @@ export default function Home() {
               </Link>
             </div>
           </div>
-          <div className="relative">
-          <img
-            src="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&q=80&w=800"
-            alt="صورة بيت المندي"
-            className="w-full h-[300px] md:h-[420px] object-cover rounded-3xl shadow-2xl"
-          />
-          <div className="absolute -bottom-5 -right-5 md:-right-6 rounded-2xl p-4 md:p-6 font-black text-lg md:text-xl" style={{ background: 'var(--plum)', color: '#F4EFE6', boxShadow: '0 8px 30px rgba(116, 19, 58, 0.4)' }}>
-             الأفضل في صنعاء
+          <div className="relative min-h-[300px] md:min-h-[420px]">
+            {galleryImages.length > 0 && !galleryError ? (
+              <>
+                <div className="relative w-full h-[300px] md:h-[420px]" style={{ borderRadius: '24px', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={galleryImages[activeGalleryIndex]?.id || 'fallback'}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.6, ease: 'easeInOut' }}
+                      style={{ position: 'absolute', inset: 0 }}
+                    >
+                      <Image
+                        src={galleryImages[activeGalleryIndex]?.image_url}
+                        alt={galleryImages[activeGalleryIndex]?.category || 'صورة بيت المندي'}
+                        fill
+                        sizes="(max-width: 768px) 100vw, 50vw"
+                        className="object-cover"
+                        priority
+                        onError={handleGalleryImageError}
+                        style={{ borderRadius: '24px' }}
+                      />
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
+                <div className="absolute -bottom-5 -right-5 md:-right-6 rounded-2xl p-4 md:p-6 font-black text-lg md:text-xl" style={{ background: 'var(--plum)', color: '#F4EFE6', boxShadow: '0 8px 30px rgba(116, 19, 58, 0.4)' }}>
+                  {galleryImages[activeGalleryIndex]?.category || galleryImages[activeGalleryIndex]?.caption_ar || 'بيت المندي'}
+                </div>
+              </>
+            ) : (
+              <>
+                <img
+                  src="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&q=80&w=800"
+                  alt="صورة بيت المندي"
+                  className="w-full h-[300px] md:h-[420px] object-cover rounded-3xl shadow-2xl"
+                />
+                <div className="absolute -bottom-5 -right-5 md:-right-6 rounded-2xl p-4 md:p-6 font-black text-lg md:text-xl" style={{ background: 'var(--plum)', color: '#F4EFE6', boxShadow: '0 8px 30px rgba(116, 19, 58, 0.4)' }}>
+                   الأفضل في صنعاء
+                </div>
+              </>
+            )}
           </div>
-        </div>
         </div>
       </section>
 

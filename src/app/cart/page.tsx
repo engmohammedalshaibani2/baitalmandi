@@ -94,14 +94,14 @@ export default function CartPage() {
     try {
       const orderItems = cart.flatMap(item => {
         if (item.isOffer && item.bundleItems && item.bundleItems.length > 0) {
-          return item.bundleItems.map(bi => ({
+          return [{
             category_name: 'عروض',
-            item_name: bi.name,
-            size_label: bi.size || 'عادي',
-            quantity: bi.quantity * item.quantity,
-            unit_price: bi.price,
-            total_price: bi.price * bi.quantity * item.quantity,
-          }));
+            item_name: item.name,
+            size_label: 'عادي',
+            quantity: item.quantity,
+            unit_price: item.price,
+            total_price: item.price * item.quantity,
+          }];
         }
         return [{
           category_name: item.category || 'General',
@@ -113,8 +113,23 @@ export default function CartPage() {
         }];
       });
 
-      const offerCartItem = cart.find(ci => ci.isOffer);
-      const offerId = offerCartItem?.offerId;
+      // === MULTI-OFFER EXTRACTION ===
+      // Extract ALL offers from cart (not just the first one)
+      const offerCartItems = cart.filter(ci => ci.isOffer && ci.offerId);
+      const offers = offerCartItems.length > 0
+        ? offerCartItems.map(ci => ({
+            offer_id: ci.offerId!,
+            quantity: ci.quantity,
+            bundle_items: (ci.bundleItems || []).map(bi => ({
+              category_name: 'عروض',
+              item_name: bi.name,
+              size_label: bi.size || 'عادي',
+              quantity: bi.quantity,
+              unit_price: bi.price,
+              total_price: bi.price * bi.quantity,
+            })),
+          }))
+        : undefined;
 
       let notes = '';
       if (paymentMethod === 'wallet' && selectedWalletIdx !== null && wallets[selectedWalletIdx]) {
@@ -131,7 +146,7 @@ export default function CartPage() {
         delivery_address: customerInfo.address.trim(),
         notes: notes,
         items: orderItems,
-        offer_id: offerId,
+        offers: offers,
         subtotal: cartTotal,
         delivery_fee: deliveryFee,
         tax_amount: 0,

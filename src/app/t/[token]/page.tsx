@@ -74,6 +74,7 @@ export default function TokenTrackingPage() {
               discountAmount: Number(o.discount_amount),
               discountPercent: Number(o.discount_percent),
               finalPrice: Number(o.final_price),
+              quantity: Number(o.quantity) || 1,
               items: (o.items || []).map((i: any) => ({
                 id: i.id,
                 orderOfferId: i.order_offer_id,
@@ -237,10 +238,10 @@ function renderOrderCard(
     : '';
 
   const currency = settings['currency'] || 'ريال';
-  const bundleInfo: OrderBundleInfo | null =
+  const bundleInfos: OrderBundleInfo[] =
     orderOffers.length > 0
-      ? snapshotToBundleInfo(orderOffers[0])
-      : extractBundleFromNotes(order.notes);
+      ? orderOffers.map(snapshotToBundleInfo)
+      : (() => { const n = extractBundleFromNotes(order.notes); return n ? [n] : []; })();
 
   return (
     <div key={order.id} className="glass-panel" style={{ padding: 0, overflow: 'hidden' }}>
@@ -368,22 +369,29 @@ function renderOrderCard(
 
           {/* Totals */}
           <div style={{ borderTop: '2px solid var(--gold)', paddingTop: '14px' }}>
-            {bundleInfo && (
-              <div style={{ marginBottom: '10px', padding: '8px 10px', background: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
-                  <Percent size={13} color="#10b981" />
-                  <span style={{ fontWeight: 700, fontSize: '0.82rem', color: '#10b981' }}>{bundleInfo.offerName}</span>
+            {bundleInfos.length > 0 && bundleInfos.map((b, bi) => {
+              const bQty = b.quantity || 1;
+              return (
+                <div key={bi} style={{ marginBottom: '10px', padding: '8px 10px', background: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
+                    <Percent size={13} color="#10b981" />
+                    <span style={{ fontWeight: 700, fontSize: '0.82rem', color: '#10b981' }}>{b.offerName} × {bQty}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1px' }}>
+                    <span>سعر الوحدة</span>
+                    <span style={{ textDecoration: 'line-through', color: 'var(--text-muted)' }}>{b.originalPrice} {currency}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#10b981' }}>
+                    <span>وفرت للوحدة</span>
+                    <span>-{b.discountAmount} {currency} ({b.discountPercent}%)</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px', borderTop: '1px solid rgba(16,185,129,0.15)', paddingTop: '2px' }}>
+                    <span>إجمالي الباقة</span>
+                    <span style={{ fontWeight: 700, color: '#10b981' }}>{bQty * b.originalPrice - bQty * b.discountAmount} {currency}</span>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1px' }}>
-                  <span>السعر الأصلي</span>
-                  <span style={{ textDecoration: 'line-through', color: 'var(--text-muted)' }}>{bundleInfo.originalPrice} {currency}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#10b981' }}>
-                  <span>وفرت</span>
-                  <span>-{bundleInfo.discountAmount} {currency} ({bundleInfo.discountPercent}%)</span>
-                </div>
-              </div>
-            )}
+              );
+            })}
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>
               <span>المجموع الفرعي</span><span>{order.subtotal} {currency}</span>
             </div>

@@ -371,14 +371,14 @@ export default function MyOrdersPage() {
     try {
       const orderItems = cart.flatMap(item => {
         if (item.isOffer && item.bundleItems && item.bundleItems.length > 0) {
-          return item.bundleItems.map(bi => ({
+          return [{
             category_name: 'عروض',
-            item_name: bi.name,
-            size_label: bi.size || 'عادي',
-            quantity: bi.quantity * item.quantity,
-            unit_price: bi.price,
-            total_price: bi.price * bi.quantity * item.quantity,
-          }));
+            item_name: item.name,
+            size_label: 'عادي',
+            quantity: item.quantity,
+            unit_price: item.price,
+            total_price: item.price * item.quantity,
+          }];
         }
         return [{
           category_name: item.category || 'General',
@@ -390,8 +390,22 @@ export default function MyOrdersPage() {
         }];
       });
 
-      const offerCartItem = cart.find(ci => ci.isOffer);
-      const offerId = offerCartItem?.offerId;
+      // === MULTI-OFFER EXTRACTION ===
+      const offerCartItems = cart.filter(ci => ci.isOffer && ci.offerId);
+      const offers = offerCartItems.length > 0
+        ? offerCartItems.map(ci => ({
+            offer_id: ci.offerId!,
+            quantity: ci.quantity,
+            bundle_items: (ci.bundleItems || []).map(bi => ({
+              category_name: 'عروض',
+              item_name: bi.name,
+              size_label: bi.size || 'عادي',
+              quantity: bi.quantity,
+              unit_price: bi.price,
+              total_price: bi.price * bi.quantity,
+            })),
+          }))
+        : undefined;
 
       let notesWithPayment = notes || '';
       if (paymentMethod === 'wallet' && selectedWalletIdx !== null && wallets[selectedWalletIdx]) {
@@ -408,7 +422,7 @@ export default function MyOrdersPage() {
         delivery_address: customerInfo.address.trim(),
         notes: notesWithPayment.trim() || undefined,
         items: orderItems,
-        offer_id: offerId,
+        offers: offers,
         subtotal: cartTotal,
         order_method: method,
         payment_method: paymentMethod,

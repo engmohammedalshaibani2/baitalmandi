@@ -6,6 +6,7 @@ export interface OrderBundleInfo {
   discountAmount: number;
   discountPercent: number;
   finalPrice: number;
+  quantity?: number;
 }
 
 /**
@@ -35,21 +36,24 @@ export function snapshotToBundleInfo(snapshot: OrderOfferSnapshot): OrderBundleI
     discountAmount: snapshot.discountAmount,
     discountPercent: snapshot.discountPercent,
     finalPrice: snapshot.finalPrice,
+    quantity: snapshot.quantity || 1,
   };
 }
 
 /**
- * Get the best available bundle info for an order.
- * First tries the order_offers table (new system), then falls back to notes.
+ * Get all bundle infos for an order.
+ * First tries the order_offers table (new system — returns ALL offers),
+ * then falls back to notes (single offer, backward compat).
  */
-export async function getBundleInfo(orderId: string, notes?: string | null): Promise<OrderBundleInfo | null> {
+export async function getBundleInfos(orderId: string, notes?: string | null): Promise<OrderBundleInfo[]> {
   try {
     const offers = await getOrderOffers(orderId);
     if (offers.length > 0) {
-      return snapshotToBundleInfo(offers[0]);
+      return offers.map(snapshotToBundleInfo);
     }
   } catch {
     // Fall through to notes
   }
-  return extractBundleFromNotes(notes);
+  const single = extractBundleFromNotes(notes);
+  return single ? [single] : [];
 }

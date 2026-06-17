@@ -12,6 +12,7 @@ export interface OrderOfferSnapshot {
   discountAmount: number;
   discountPercent: number;
   finalPrice: number;
+  quantity: number;
   items: OrderOfferItemSnapshot[];
 }
 
@@ -26,6 +27,11 @@ interface OrderOfferItemSnapshot {
 }
 
 export async function getOrderOffers(orderId: string): Promise<OrderOfferSnapshot[]> {
+  if (!orderId) {
+    console.warn('[GET_ORDER_OFFERS] Invalid orderId:', orderId);
+    return [];
+  }
+
   const supabase = await createClient();
 
   const { data: offers } = await supabase
@@ -67,6 +73,7 @@ export async function getOrderOffers(orderId: string): Promise<OrderOfferSnapsho
     discountAmount: Number(o.discount_amount),
     discountPercent: Number(o.discount_percent),
     finalPrice: Number(o.final_price),
+    quantity: Number(o.quantity) || 1,
     items: itemsByOfferId[o.id] || [],
   }));
 }

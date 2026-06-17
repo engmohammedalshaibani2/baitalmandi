@@ -1,7 +1,7 @@
 'use server';
 
 import { createClient } from '@/utils/supabase/server';
-import { calculateOfferPrice } from '@/lib/offer-pricing';
+import { calculateOfferPrice, type OfferPricingResult } from '@/lib/offer-pricing';
 import { haversineDistance, MAX_DELIVERY_RADIUS_KM } from '@/lib/location-validation';
 import { calculateRoute, estimateRoadDistance, estimateDuration } from '@/lib/delivery-routing';
 import { calculateDeliveryFee, parseDeliverySettings } from '@/lib/delivery-pricing';
@@ -79,13 +79,20 @@ export interface OrderItemInput {
   total_price: number;
 }
 
+export interface OfferInput {
+  offer_id: string;
+  quantity: number;
+  bundle_items: OrderItemInput[];
+}
+
 export interface CreateOrderInput {
   customer_name: string;
   customer_phone: string;
   delivery_address: string;
   notes?: string;
   items: OrderItemInput[];
-  offer_id?: string;
+  /** Multiple offers/bundles support — each offer is a separate entity */
+  offers?: OfferInput[];
   subtotal: number;
   /** Client-provided delivery_fee — NEVER TRUSTED, recalculated server-side */
   delivery_fee?: number;
@@ -291,65 +298,92 @@ export async function createOrder(input: CreateOrderInput) {
   let validatedSubtotal = 0;
   let validatedTotalAmount = 0;
 
-  if (input.offer_id) {
-    const { data: offer } = await supabase
-      .from('offers')
-      .select('*, offer_items(*, menu_item:menu_item_id(*, item_prices(*)))')
-      .eq('id', input.offer_id)
-      .maybeSingle();
+  // === MULTI-OFFER PROCESSING ===
+  // Process ALL offers in the order, not just the first one.
+  // Each offer is independently validated and priced.
+  const processedOffers: Array<{
+    offerInput: OfferInput;
+    offer: any;
+    pricing: OfferPricingResult;
+  }> = [];
 
-    if (!offer) {
-      throw new Error('العرض غير موجود');
+  if (input.offers && input.offers.length > 0) {
+    for (const offerInput of input.offers) {
+      const { data: offer } = await supabase
+        .from('offers')
+        .select('*, offer_items(*, menu_item:menu_item_id(*, item_prices(*)))')
+        .eq('id', offerInput.offer_id)
+        .maybeSingle();
+
+      if (!offer) {
+        throw new Error(`العرض ${offerInput.offer_id} غير موجود`);
+      }
+
+      const now = new Date().toISOString();
+      const startDate = new Date(offer.start_date).toISOString();
+      const endDate = new Date(offer.end_date).toISOString();
+      if (offer.status !== 'active' || !offer.is_active || now < startDate || now > endDate) {
+        throw new Error(`العرض ${offer.title_ar || ''} غير متاح حالياً`);
+      }
+
+      const bundleItems = (offer.offer_items || []).map((oi: any) => {
+        const prices = oi.menu_item?.item_prices || [];
+        const unitPrice = oi.unit_price ? Number(oi.unit_price) : 0;
+        return {
+          itemId: oi.menu_item_id,
+          itemName: oi.menu_item?.name_ar || '',
+          quantity: oi.quantity,
+          unitPrice,
+          priceId: oi.price_id || undefined,
+          variantName: oi.variant_name || undefined,
+          sizeLabel: oi.variant_name || prices[0]?.size_label_ar || 'عادي',
+          categoryName: 'عروض',
+        };
+      });
+
+      if (bundleItems.length === 0) {
+        throw new Error(`العرض ${offer.title_ar || ''} لا يحتوي على منتجات`);
+      }
+
+      const pricing = calculateOfferPrice({
+        offerType: (offer.offer_type as any) || 'percentage_discount',
+        salePrice: offer.sale_price ? Number(offer.sale_price) : undefined,
+        discountPercent: offer.discount_percent || undefined,
+        discountAmount: offer.discount_amount ? Number(offer.discount_amount) : undefined,
+        items: bundleItems,
+      });
+
+      processedOffers.push({ offerInput, offer, pricing });
     }
-
-    const now = new Date().toISOString();
-    const startDate = new Date(offer.start_date).toISOString();
-    const endDate = new Date(offer.end_date).toISOString();
-    if (offer.status !== 'active' || !offer.is_active || now < startDate || now > endDate) {
-      throw new Error('العرض غير متاح حالياً');
-    }
-
-    const bundleItems = (offer.offer_items || []).map((oi: any) => {
-      const prices = oi.menu_item?.item_prices || [];
-      const unitPrice = oi.unit_price ? Number(oi.unit_price) : 0;
-      return {
-        itemId: oi.menu_item_id,
-        itemName: oi.menu_item?.name_ar || '',
-        quantity: oi.quantity,
-        unitPrice,
-        priceId: oi.price_id || undefined,
-        variantName: oi.variant_name || undefined,
-        sizeLabel: oi.variant_name || prices[0]?.size_label_ar || 'عادي',
-        categoryName: 'عروض',
-      };
-    });
-
-    if (bundleItems.length === 0) {
-      throw new Error('العرض لا يحتوي على منتجات');
-    }
-
-    const pricing = calculateOfferPrice({
-      offerType: (offer.offer_type as any) || 'percentage_discount',
-      salePrice: offer.sale_price ? Number(offer.sale_price) : undefined,
-      discountPercent: offer.discount_percent || undefined,
-      discountAmount: offer.discount_amount ? Number(offer.discount_amount) : undefined,
-      items: bundleItems,
-    });
 
     const regularItemsTotal = input.items
       .filter(item => item.category_name !== 'عروض')
       .reduce((sum, item) => sum + item.total_price, 0);
-    validatedSubtotal = regularItemsTotal + pricing.finalPrice;
+
+    const totalOfferAmount = processedOffers.reduce(
+      (acc, po) => acc + po.pricing.finalPrice * po.offerInput.quantity,
+      0,
+    );
+
+    validatedSubtotal = regularItemsTotal + totalOfferAmount;
     validatedTotalAmount = validatedSubtotal + deliveryFeeNumeric;
 
-    console.log('[OFFER_ORDER_CALC]', JSON.stringify({
+    console.log('[MULTI_OFFER_CALC]', JSON.stringify({
       regularItemsTotal,
-      offerFinalPrice: pricing.finalPrice,
+      offerCount: processedOffers.length,
+      offers: processedOffers.map(po => ({
+        offerId: po.offerInput.offer_id,
+        name: po.offer.title_ar,
+        perBundlePrice: po.pricing.finalPrice,
+        quantity: po.offerInput.quantity,
+        offerTotal: po.pricing.finalPrice * po.offerInput.quantity,
+        originalPrice: po.pricing.originalPrice,
+        discountAmount: po.pricing.discountAmount,
+      })),
+      totalOfferAmount,
       validatedSubtotal,
       deliveryFee: deliveryFeeNumeric,
       validatedTotalAmount,
-      regularItemCount: input.items.filter(i => i.category_name !== 'عروض').length,
-      offerItemCount: input.items.filter(i => i.category_name === 'عروض').length,
     }));
   } else {
     validatedSubtotal = input.subtotal;
@@ -380,7 +414,7 @@ export async function createOrder(input: CreateOrderInput) {
       result: 'REJECTED',
       customerName: input.customer_name,
       customerPhone: input.customer_phone,
-      offerId: input.offer_id || null,
+      offerIds: processedOffers.map(po => po.offerInput.offer_id),
     }));
     throw new Error(`الحد الأدنى للطلب هو ${minOrderAmount} ${currency}. إجمالي الطلب: ${finalPayableAmount} ${currency}`);
   }
@@ -394,7 +428,7 @@ export async function createOrder(input: CreateOrderInput) {
     .insert({
       order_number: orderNumber,
       tracking_token: trackingToken,
-      offer_id: input.offer_id || null,
+      offer_id: null, // Multi-offer support: offers stored in order_offers table
       customer_name: input.customer_name.trim(),
       customer_phone: phone,
       delivery_address: input.delivery_address?.trim() || null,
@@ -474,66 +508,89 @@ export async function createOrder(input: CreateOrderInput) {
     });
   }
 
-  if (input.offer_id && order) {
-    const { data: offer } = await supabase
-      .from('offers')
-      .select('*, offer_items(*)')
-      .eq('id', input.offer_id)
-      .maybeSingle();
+  // === MULTI-OFFER DB INSERT ===
+  // Insert one order_offers row per offer with its bundle_items.
+  // The orders.offer_id FK is set to null (we use order_offers for multi-offer).
+  for (const po of processedOffers) {
+    const { data: orderOffer, error: orderOfferError } = await supabase
+      .from('order_offers')
+      .insert({
+        order_id: order.id,
+        offer_id: po.offerInput.offer_id,
+        offer_name: po.offer.title_ar || 'عرض',
+        offer_type: po.offer.offer_type || 'percentage_discount',
+        original_price: String(po.pricing.originalPrice),
+        discount_amount: String(po.pricing.discountAmount),
+        discount_percent: String(po.pricing.discountPercent),
+        final_price: String(po.pricing.finalPrice),
+        quantity: po.offerInput.quantity,
+      })
+      .select()
+      .single();
 
-    if (offer) {
-      const bundleItems = (offer.offer_items || []).map((oi: any) => ({
-        itemId: oi.menu_item_id,
-        itemName: oi.menu_item_id || '',
-        quantity: oi.quantity,
-        unitPrice: Number(oi.unit_price || 0),
-        priceId: oi.price_id || undefined,
-        variantName: oi.variant_name || undefined,
-        sizeLabel: oi.variant_name || 'عادي',
-        categoryName: 'عروض',
-      }));
-
-      const pricing = calculateOfferPrice({
-        offerType: (offer.offer_type as any) || 'percentage_discount',
-        salePrice: offer.sale_price ? Number(offer.sale_price) : undefined,
-        discountPercent: offer.discount_percent || undefined,
-        discountAmount: offer.discount_amount ? Number(offer.discount_amount) : undefined,
-        items: bundleItems,
+    if (orderOfferError) {
+      console.error('[MULTI_OFFER_DB] Failed to insert order_offer:', {
+        orderId: order.id,
+        offerId: po.offerInput.offer_id,
+        offerName: po.offer.title_ar,
+        error: orderOfferError,
       });
+    }
 
-      const { data: orderOffer } = await supabase
-        .from('order_offers')
-        .insert({
-          order_id: order.id,
-          offer_id: input.offer_id,
-          offer_name: offer.title_ar,
-          offer_type: offer.offer_type || 'percentage_discount',
-          original_price: String(pricing.originalPrice),
-          discount_amount: String(pricing.discountAmount),
-          discount_percent: String(pricing.discountPercent),
-          final_price: String(pricing.finalPrice),
-        })
-        .select()
-        .single();
+    if (orderOffer) {
+      const bundleItemsData = (po.offerInput.bundle_items || [])
+        .map(item => ({
+          order_offer_id: orderOffer.id,
+          item_name: item.item_name,
+          size_label: item.size_label,
+          quantity: item.quantity,
+          unit_price: String(item.unit_price),
+          total_price: String(item.total_price),
+        }));
 
-      if (orderOffer) {
-        const offerItemsData = input.items
-          .filter(item => item.category_name === 'عروض')
-          .map(item => ({
-            order_offer_id: orderOffer.id,
-            item_name: item.item_name,
-            size_label: item.size_label,
-            quantity: item.quantity,
-            unit_price: String(item.unit_price),
-            total_price: String(item.total_price),
-          }));
+      if (bundleItemsData.length > 0) {
+        const { error: biError } = await supabase
+          .from('order_offer_items')
+          .insert(bundleItemsData);
 
-        if (offerItemsData.length > 0) {
-          await supabase.from('order_offer_items').insert(offerItemsData);
+        if (biError) {
+          console.error('[MULTI_OFFER_DB] Failed to insert order_offer_items:', {
+            orderOfferId: orderOffer.id,
+            offerName: po.offer.title_ar,
+            error: biError,
+          });
         }
       }
     }
   }
+
+  console.log('[ORDER_PAYLOAD]', JSON.stringify({
+    orderNumber,
+    subtotal: validatedSubtotal,
+    deliveryFee: deliveryFeeNumeric,
+    totalAmount: validatedTotalAmount,
+    itemCount: input.items.length,
+    offerCount: processedOffers.length,
+    offerIds: processedOffers.map(po => po.offerInput.offer_id),
+  }));
+  console.log('[ORDER_ITEMS_SNAPSHOT]', JSON.stringify(input.items.map(i => ({
+    name: i.item_name,
+    qty: i.quantity,
+    unitPrice: i.unit_price,
+    total: i.total_price,
+  }))));
+  console.log('[ORDER_OFFERS_SNAPSHOT]', JSON.stringify({
+    orderId: order.id,
+    offers: processedOffers.map(po => ({
+      offerId: po.offerInput.offer_id,
+      name: po.offer.title_ar,
+      originalPrice: po.pricing.originalPrice,
+      finalPrice: po.pricing.finalPrice,
+      discountAmount: po.pricing.discountAmount,
+      quantity: po.offerInput.quantity,
+      bundleItemsCount: (po.offerInput.bundle_items || []).length,
+    })),
+  }));
 
   console.log(`[CREATE_ORDER] Success: ${orderNumber} (${input.customer_name})`);
   return { ...order, order_number: orderNumber, tracking_token: trackingToken };

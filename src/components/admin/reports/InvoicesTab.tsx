@@ -52,13 +52,14 @@ export default function InvoicesTab({ startDate, endDate, status, payment, searc
     let bundleInfo = null;
     const offers = offersRes.data;
     if (offers && offers.length > 0) {
-      bundleInfo = {
-        offerName: offers[0].offer_name,
-        originalPrice: Number(offers[0].original_price),
-        discountAmount: Number(offers[0].discount_amount),
-        discountPercent: Number(offers[0].discount_percent),
-        finalPrice: Number(offers[0].final_price),
-      };
+      bundleInfo = (offers || []).map((o: any) => ({
+        offerName: o.offer_name,
+        originalPrice: Number(o.original_price),
+        discountAmount: Number(o.discount_amount),
+        discountPercent: Number(o.discount_percent),
+        finalPrice: Number(o.final_price),
+        quantity: Number(o.quantity) || 1,
+      }));
     }
 
     const token = order.tracking_token || order.id;

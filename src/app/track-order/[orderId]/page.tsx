@@ -131,10 +131,10 @@ export default function TrackOrderPage() {
 
   const invoiceDate = order.created_at ? new Date(order.created_at).toLocaleDateString('ar-YE', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
   const paymentLabel = PAYMENT_LABELS[order.payment_method] || order.payment_method;
-  const bundleInfo: OrderBundleInfo | null =
+  const bundleInfos: OrderBundleInfo[] =
     orderOffers.length > 0
-      ? snapshotToBundleInfo(orderOffers[0])
-      : extractBundleFromNotes(order.notes);
+      ? orderOffers.map(snapshotToBundleInfo)
+      : (() => { const n = extractBundleFromNotes(order.notes); return n ? [n] : []; })();
 
   return (
     <>
@@ -263,22 +263,29 @@ export default function TrackOrderPage() {
             ))}
           </div>
           <div style={{ borderTop: '2px solid var(--gold)', paddingTop: '14px', marginTop: '10px' }}>
-            {bundleInfo && (
-              <div style={{ marginBottom: '10px', padding: '10px', background: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: '10px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                  <Percent size={14} color="#10b981" />
-                  <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#10b981' }}>{bundleInfo.offerName}</span>
+            {bundleInfos.length > 0 && bundleInfos.map((b, bi) => {
+              const bQty = b.quantity || 1;
+              return (
+                <div key={bi} style={{ marginBottom: '10px', padding: '10px', background: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                    <Percent size={14} color="#10b981" />
+                    <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#10b981' }}>{b.offerName} × {bQty}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>
+                    <span>سعر الوحدة</span>
+                    <span style={{ textDecoration: 'line-through', color: 'var(--text-muted)' }}>{b.originalPrice} {currency}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#10b981' }}>
+                    <span>وفرت للوحدة</span>
+                    <span>-{b.discountAmount} {currency} ({b.discountPercent}%)</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '2px', borderTop: '1px solid rgba(16,185,129,0.15)', paddingTop: '2px' }}>
+                    <span>إجمالي الباقة</span>
+                    <span style={{ fontWeight: 700, color: '#10b981' }}>{bQty * b.originalPrice - bQty * b.discountAmount} {currency}</span>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>
-                  <span>السعر الأصلي</span>
-                  <span style={{ textDecoration: 'line-through', color: 'var(--text-muted)' }}>{bundleInfo.originalPrice} {currency}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#10b981' }}>
-                  <span>وفرت</span>
-                  <span>-{bundleInfo.discountAmount} {currency} ({bundleInfo.discountPercent}%)</span>
-                </div>
-              </div>
-            )}
+              );
+            })}
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>
               <span>المجموع الفرعي</span>
               <span>{order.subtotal} {currency}</span>

@@ -35,6 +35,7 @@ interface OrderOffer {
   discountAmount: number;
   discountPercent: number;
   finalPrice: number;
+  quantity: number;
   items: OrderOfferItem[];
 }
 
@@ -103,9 +104,12 @@ export default function InvoiceModal({
 
   const qrValue = trackUrl;
 
-  const bundleOffer = (orderOffers || []).length > 0 ? orderOffers![0] : null;
-  const discountAmount = bundleOffer ? bundleOffer.discountAmount : 0;
-  const displaySubtotal = (parseFloat(order.subtotal) || 0) + discountAmount;
+  const allOffers = orderOffers || [];
+  const totalDiscountAmount = allOffers.reduce(
+    (sum, o) => sum + Number(o.discountAmount || 0) * (Number(o.quantity || 1)),
+    0,
+  );
+  const displaySubtotal = (parseFloat(order.subtotal) || 0);
 
   const handleExport = useCallback(async (format: 'png' | 'pdf') => {
     const el = receiptRef.current;
@@ -297,24 +301,33 @@ export default function InvoiceModal({
               </tbody>
             </table>
 
-            {/* Bundle / Offer */}
-            {bundleOffer && (
-              <div style={STYLES.bundleBox}>
-                <div style={STYLES.bundleTitle}>{bundleOffer.offerName}</div>
-                <div style={STYLES.bundleRow}>
-                  <span>السعر الأصلي</span>
-                  <span style={STYLES.lineThrough}>{bundleOffer.originalPrice.toLocaleString('ar-YE')} {currency}</span>
+            {/* === MULTI-OFFER DISPLAY === */}
+            {/* Show ALL offers/bundles, not just the first one */}
+            {allOffers.length > 0 && allOffers.map((offer, oi) => {
+              const oQty = Number(offer.quantity || 1);
+              const oFinalTotal = Number(offer.finalPrice || 0) * oQty;
+              return (
+                <div key={offer.id || oi} style={STYLES.bundleBox}>
+                  <div style={STYLES.bundleTitle}>{offer.offerName} × {oQty}</div>
+                  <div style={STYLES.bundleRow}>
+                    <span>السعر الأصلي للوحدة</span>
+                    <span style={STYLES.lineThrough}>{Number(offer.originalPrice || 0).toLocaleString('ar-YE')} {currency}</span>
+                  </div>
+                  <div style={{ ...STYLES.bundleRow, color: '#10b981', fontWeight: 700 }}>
+                    <span>الخصم للوحدة</span>
+                    <span>-{Number(offer.discountAmount || 0).toLocaleString('ar-YE')} {currency} ({Number(offer.discountPercent || 0)}%)</span>
+                  </div>
+                  <div style={STYLES.bundleRow}>
+                    <span>الكمية</span>
+                    <span>× {oQty}</span>
+                  </div>
+                  <div style={STYLES.bundleFinal}>
+                    <span>إجمالي الباقة</span>
+                    <span>{oFinalTotal.toLocaleString('ar-YE')} {currency}</span>
+                  </div>
                 </div>
-                <div style={{ ...STYLES.bundleRow, color: '#10b981', fontWeight: 700 }}>
-                  <span>الخصم</span>
-                  <span>-{bundleOffer.discountAmount.toLocaleString('ar-YE')} {currency} ({bundleOffer.discountPercent}%)</span>
-                </div>
-                <div style={STYLES.bundleFinal}>
-                  <span>السعر النهائي</span>
-                  <span>{bundleOffer.finalPrice.toLocaleString('ar-YE')} {currency}</span>
-                </div>
-              </div>
-            )}
+              );
+            })}
 
             {/* Totals */}
             <div style={STYLES.totalsSection}>
@@ -328,10 +341,10 @@ export default function InvoiceModal({
                   <span>{deliveryFeeNum.toLocaleString('ar-YE')} {currency}</span>
                 </div>
               )}
-              {discountAmount > 0 && (
+              {totalDiscountAmount > 0 && (
                 <div style={{ ...STYLES.totalRow, color: '#10b981', fontWeight: 600 }}>
                   <span>الخصم</span>
-                  <span>-{discountAmount.toLocaleString('ar-YE')} {currency}</span>
+                  <span>-{totalDiscountAmount.toLocaleString('ar-YE')} {currency}</span>
                 </div>
               )}
               <div style={STYLES.totalFinal}>

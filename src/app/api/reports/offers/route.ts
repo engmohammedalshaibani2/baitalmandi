@@ -21,20 +21,21 @@ export async function GET(request: NextRequest) {
       .lte('order.created_at', endDate)
       .not('order.status', 'eq', 'cancelled');
 
-    const totalDiscountAmount = (orderOffers || []).reduce((sum, o) => sum + Number(o.discount_amount), 0);
-    const totalOriginalPrice = (orderOffers || []).reduce((sum, o) => sum + Number(o.original_price), 0);
-    const totalFinalPrice = (orderOffers || []).reduce((sum, o) => sum + Number(o.final_price), 0);
-    const offerOrderCount = (orderOffers || []).length;
+    const totalDiscountAmount = (orderOffers || []).reduce((sum, o) => sum + Number(o.discount_amount) * (Number(o.quantity) || 1), 0);
+    const totalOriginalPrice = (orderOffers || []).reduce((sum, o) => sum + Number(o.original_price) * (Number(o.quantity) || 1), 0);
+    const totalFinalPrice = (orderOffers || []).reduce((sum, o) => sum + Number(o.final_price) * (Number(o.quantity) || 1), 0);
+    const offerOrderCount = (orderOffers || []).reduce((sum, o) => sum + (Number(o.quantity) || 1), 0);
 
     // 2. Top 10 best selling offers
     const offerCounts: Record<string, { name: string; count: number; revenue: number; discounts: number }> = {};
     for (const o of orderOffers || []) {
+      const qty = Number(o.quantity) || 1;
       if (!offerCounts[o.offer_name]) {
         offerCounts[o.offer_name] = { name: o.offer_name, count: 0, revenue: 0, discounts: 0 };
       }
-      offerCounts[o.offer_name].count++;
-      offerCounts[o.offer_name].revenue += Number(o.final_price);
-      offerCounts[o.offer_name].discounts += Number(o.discount_amount);
+      offerCounts[o.offer_name].count += qty;
+      offerCounts[o.offer_name].revenue += Number(o.final_price) * qty;
+      offerCounts[o.offer_name].discounts += Number(o.discount_amount) * qty;
     }
     const topOffers = Object.values(offerCounts)
       .sort((a, b) => b.count - a.count)

@@ -43,6 +43,10 @@ export const useCartStore = create<CartState>()(
     (set, get) => ({
       items: [],
       addToCart: (item) => {
+        if (typeof item.price !== 'number' || isNaN(item.price) || item.price < 0) {
+          console.error('[CART_STORE] Invalid item price:', item);
+          return {};
+        }
         set((state) => {
           const existing = state.items.find((i) => i.id === item.id && i.size === item.size);
           if (existing) {

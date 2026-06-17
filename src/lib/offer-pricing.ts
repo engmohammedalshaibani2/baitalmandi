@@ -40,6 +40,9 @@ export interface OfferPricingResult {
  * - For items without a selected variant, uses the best available price
  */
 export function calculateOfferPrice(input: OfferPricingInput): OfferPricingResult {
+  if (!input.items || input.items.length === 0) {
+    return { originalPrice: 0, discountAmount: 0, discountPercent: 0, finalPrice: 0, finalPriceRounded: 0, savings: 0, items: [] };
+  }
   const originalPrice = input.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
 
   let finalPrice: number;

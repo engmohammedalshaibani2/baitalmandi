@@ -28,12 +28,21 @@ const PAYMENT_NAMES: Record<string, string> = {
   cash: 'نقداً', wallet: 'محفظة إلكترونية', transfer: 'تحويل بنكي',
 };
 
+export interface ReceiptBundleInfo {
+  offerName: string;
+  originalPrice: number;
+  discountAmount: number;
+  discountPercent: number;
+  finalPrice: number;
+  quantity?: number;
+}
+
 /** Generate the receipt body HTML (shared by both customer modal and admin print). */
 export function generateReceiptBody(
   order: Order,
   settings: Record<string, string>,
   trackUrl: string,
-  bundleInfo?: { offerName: string; originalPrice: number; discountAmount: number; discountPercent: number; finalPrice: number } | null,
+  bundleInfo?: ReceiptBundleInfo[] | ReceiptBundleInfo | null,
 ): string {
   const restaurantName = settings['restaurant_name'] || 'بيت المندي';
   const currency = settings['currency'] || 'ريال';
@@ -55,8 +64,15 @@ export function generateReceiptBody(
   const totalNum = parseFloat(order.total_amount) || 0;
   const paymentLabel = PAYMENT_NAMES[order.payment_method] || order.payment_method;
 
-  const discountAmount = bundleInfo ? bundleInfo.discountAmount : 0;
-  const displaySubtotal = subtotalNum + discountAmount;
+  // Normalize to array for multi-offer support
+  const bundleList: ReceiptBundleInfo[] = bundleInfo
+    ? Array.isArray(bundleInfo) ? bundleInfo : [bundleInfo]
+    : [];
+  const totalDiscountAmount = bundleList.reduce(
+    (sum, b) => sum + (b.discountAmount || 0) * (b.quantity || 1),
+    0,
+  );
+  const displaySubtotal = subtotalNum;
 
   const itemsRows = (order.items || []).map((item) => `
     <tr>
@@ -68,23 +84,31 @@ export function generateReceiptBody(
     </tr>
   `).join('');
 
-  const bundleHtml = bundleInfo ? `
+  const bundleHtml = bundleList.length > 0 ? bundleList.map((b) => {
+    const bQty = b.quantity || 1;
+    const bFinalTotal = (b.finalPrice || 0) * bQty;
+    return `
     <div class="bundle-box">
-      <div class="bundle-title">${escHtml(bundleInfo.offerName)}</div>
+      <div class="bundle-title">${escHtml(b.offerName)} × ${bQty}</div>
       <div class="bundle-row">
-        <span>السعر الأصلي</span>
-        <span class="line-through">${bundleInfo.originalPrice.toLocaleString('ar-YE')} ${escHtml(currency)}</span>
+        <span>السعر الأصلي للوحدة</span>
+        <span class="line-through">${(b.originalPrice || 0).toLocaleString('ar-YE')} ${escHtml(currency)}</span>
       </div>
       <div class="bundle-row discount">
-        <span>الخصم</span>
-        <span>-${bundleInfo.discountAmount.toLocaleString('ar-YE')} ${escHtml(currency)} (${bundleInfo.discountPercent}%)</span>
+        <span>الخصم للوحدة</span>
+        <span>-${(b.discountAmount || 0).toLocaleString('ar-YE')} ${escHtml(currency)} (${b.discountPercent || 0}%)</span>
+      </div>
+      <div class="bundle-row">
+        <span>الكمية</span>
+        <span>× ${bQty}</span>
       </div>
       <div class="bundle-row final">
-        <span>السعر النهائي</span>
-        <span>${bundleInfo.finalPrice.toLocaleString('ar-YE')} ${escHtml(currency)}</span>
+        <span>إجمالي الباقة</span>
+        <span>${bFinalTotal.toLocaleString('ar-YE')} ${escHtml(currency)}</span>
       </div>
     </div>
-  ` : '';
+  `;
+  }).join('') : '';
 
   return `
     <div class="receipt-inner">
@@ -144,7 +168,7 @@ export function generateReceiptBody(
       <div class="totals-section">
         <div class="total-row"><span>المجموع الفرعي</span><span>${displaySubtotal.toLocaleString('ar-YE')} ${escHtml(currency)}</span></div>
         ${deliveryFeeNum > 0 ? `<div class="total-row"><span>رسوم التوصيل</span><span>${deliveryFeeNum.toLocaleString('ar-YE')} ${escHtml(currency)}</span></div>` : ''}
-        ${discountAmount > 0 ? `<div class="total-row discount"><span>الخصم</span><span>-${discountAmount.toLocaleString('ar-YE')} ${escHtml(currency)}</span></div>` : ''}
+        ${totalDiscountAmount > 0 ? `<div class="total-row discount"><span>الخصم</span><span>-${totalDiscountAmount.toLocaleString('ar-YE')} ${escHtml(currency)}</span></div>` : ''}
         <div class="total-row final">
           <span>الإجمالي النهائي</span>
           <span>${totalNum.toLocaleString('ar-YE')} ${escHtml(currency)}</span>
@@ -173,7 +197,7 @@ export function generateReceiptHtml(
   order: Order,
   settings: Record<string, string>,
   trackUrl: string,
-  bundleInfo?: { offerName: string; originalPrice: number; discountAmount: number; discountPercent: number; finalPrice: number } | null,
+  bundleInfo?: ReceiptBundleInfo[] | ReceiptBundleInfo | null,
 ): string {
   const body = generateReceiptBody(order, settings, trackUrl, bundleInfo);
 

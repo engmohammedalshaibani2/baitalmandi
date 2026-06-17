@@ -311,6 +311,7 @@ export const orderOffers = pgTable('order_offers', {
   discountAmount: numeric('discount_amount').notNull(),
   discountPercent: numeric('discount_percent').default('0').notNull(),
   finalPrice: numeric('final_price').notNull(),
+  quantity: integer('quantity').default(1).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 });
 

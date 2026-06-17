@@ -7,6 +7,10 @@ import { useCartStore } from '@/store/cartStore';
 import { useSettings } from '@/lib/settings-context';
 import { createOrder, calculateDeliveryFeeServer } from '@/actions/orders';
 import { Trash2, Plus, Minus, ArrowRight, MessageCircle, CheckCircle, ShoppingBag, Copy, Wallet, MapPin, Crosshair } from 'lucide-react';
+
+function generateIdempotencyKey(): string {
+  return `idem-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
 import { getDeliveryRoutes } from '@/lib/maps/getDeliveryRoute';
 import { validateYemeniPhone, validateFullName, validateDeliveryAddress } from '@/lib/validation';
 import { buildWhatsAppOrderMessage, formatOrderDate, getArabicStatus } from '@/lib/whatsapp-message';
@@ -49,6 +53,8 @@ export default function MyOrdersPage() {
   const nameRef = useRef<HTMLInputElement>(null);
   const phoneRef = useRef<HTMLInputElement>(null);
   const addressRef = useRef<HTMLTextAreaElement>(null);
+  const submittingRef = useRef(false);
+  const [idempotencyKey] = useState(() => generateIdempotencyKey());
 
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'wallet' | 'transfer'>('cash');
   const [selectedWalletIdx, setSelectedWalletIdx] = useState<number | null>(null);
@@ -359,11 +365,15 @@ export default function MyOrdersPage() {
   };
 
   const createOrderAndRedirect = async (method: 'whatsapp' | 'website') => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     if (!deliveryInfo) {
       setLocationError('يرجى تحديد موقع التوصيل أولاً');
+      submittingRef.current = false;
       return;
     }
     if (!validateAll()) {
+      submittingRef.current = false;
       return;
     }
 
@@ -428,6 +438,7 @@ export default function MyOrdersPage() {
         payment_method: paymentMethod,
         delivery_lat: deliveryInfo.lat,
         delivery_lng: deliveryInfo.lng,
+        idempotency_key: idempotencyKey,
       });
 
       const isPaidPayment = paymentMethod === 'wallet' || paymentMethod === 'transfer';
@@ -515,6 +526,7 @@ export default function MyOrdersPage() {
       showToast('error', 'فشل إنشاء الطلب', err?.message || 'تعذّر إنشاء الطلب، يرجى المحاولة مرة أخرى.');
     } finally {
       setLoading(false);
+      submittingRef.current = false;
     }
   };
 

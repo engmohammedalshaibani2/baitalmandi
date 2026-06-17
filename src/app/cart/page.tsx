@@ -3,11 +3,15 @@
 import { useCartStore } from '@/store/cartStore';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useSettings } from '@/lib/settings-context';
 import { createOrder } from '@/actions/orders';
 import { Plus, Minus, Trash2, ArrowRight, ShoppingBasket, Copy, Wallet } from 'lucide-react';
 import { validateYemeniPhone, validateFullName, validateDeliveryAddress } from '@/lib/validation';
+
+function generateIdempotencyKey(): string {
+  return `idem-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 interface WalletItem { name: string; number: string; active: boolean; }
 interface BankItem { name: string; account_number: string; account_holder: string; active: boolean; }
@@ -36,6 +40,8 @@ export default function CartPage() {
   const nameRef = useRef<HTMLInputElement>(null);
   const phoneRef = useRef<HTMLInputElement>(null);
   const addressRef = useRef<HTMLTextAreaElement>(null);
+  const submittingRef = useRef(false);
+  const [idempotencyKey] = useState(() => generateIdempotencyKey());
 
   // Payment
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'wallet' | 'transfer'>('cash');
@@ -66,6 +72,8 @@ export default function CartPage() {
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     if (cart.length === 0) return;
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setFieldErrors({});
 
     const nameValid = validateFullName(customerInfo.name);
@@ -86,6 +94,7 @@ export default function CartPage() {
       const firstError = errors.address ? addressRef : errors.phone ? phoneRef : nameRef;
       firstError.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       firstError.current?.focus();
+      submittingRef.current = false;
       return;
     }
 
@@ -153,6 +162,7 @@ export default function CartPage() {
         total_amount: deliveryFee > 0 ? totalWithDelivery : cartTotal,
         order_method: 'whatsapp',
         payment_method: paymentMethod,
+        idempotency_key: idempotencyKey,
       });
 
       let message = `مرحباً ${settings['restaurant_name'] || 'بيت المندي'}، أود طلب الآتي:\n\n`;
@@ -179,6 +189,7 @@ export default function CartPage() {
       alert(err?.message || 'تعذّر إنشاء الطلب، يرجى المحاولة مرة أخرى.');
     } finally {
       setLoading(false);
+      submittingRef.current = false;
     }
   };
 

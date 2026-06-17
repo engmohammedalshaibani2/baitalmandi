@@ -6,8 +6,9 @@ import LoadingScreen from '@/components/layout/LoadingScreen';
 import { SettingsProvider } from '@/lib/settings-context';
 import { ToastProvider } from '@/components/ui/Toast';
 import { OrderRealtimeProvider } from '@/realtime/OrderRealtimeProvider';
+import { PwaProvider } from '@/lib/pwa/PwaProvider';
 
-/* ── SEO Metadata ── */
+/* ── SEO + PWA Metadata ── */
 export const metadata: Metadata = {
   title: {
     default: 'بيت المندي | أصالة الطعم اليمني',
@@ -18,6 +19,7 @@ export const metadata: Metadata = {
   keywords: ['بيت المندي', 'مطعم يمني', 'مندي', 'زربيان', 'مضبي', 'صنعاء'],
   authors: [{ name: 'بيت المندي' }],
   robots: 'index, follow',
+  manifest: '/manifest.json',
   openGraph: {
     title: 'بيت المندي | أصالة الطعم اليمني',
     description: 'اطلب أشهى المأكولات اليمنية والخليجية.',
@@ -27,6 +29,12 @@ export const metadata: Metadata = {
   icons: {
     icon: '/logo.jpg',
     apple: '/logo.jpg',
+  },
+  other: {
+    'apple-mobile-web-app-capable': 'yes',
+    'apple-mobile-web-app-status-bar-style': 'default',
+    'apple-mobile-web-app-title': 'بيت المندي',
+    'mobile-web-app-capable': 'yes',
   },
 };
 
@@ -62,6 +70,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body suppressHydrationWarning style={{ paddingTop: '72px', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <PwaProvider>
         <OrderRealtimeProvider>
           <SettingsProvider>
             <ToastProvider>
@@ -74,6 +83,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </ToastProvider>
           </SettingsProvider>
         </OrderRealtimeProvider>
+        </PwaProvider>
       </body>
     </html>
   );

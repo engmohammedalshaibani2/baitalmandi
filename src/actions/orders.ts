@@ -104,6 +104,8 @@ export interface CreateOrderInput {
   /** Delivery location (from map/GPS) — validated server-side */
   delivery_lat?: number;
   delivery_lng?: number;
+  /** Idempotency key for duplicate prevention (PWA sync, double-click) */
+  idempotency_key?: string;
 }
 
 /**
@@ -423,40 +425,57 @@ export async function createOrder(input: CreateOrderInput) {
   cleanNotes = cleanNotes.replace(/\[BUNDLE\].*?\[\/BUNDLE\]/g, '').replace(/\n{2,}/g, '\n').trim();
   const notesValue = cleanNotes || null;
 
+  const insertPayload: Record<string, unknown> = {
+    order_number: orderNumber,
+    tracking_token: trackingToken,
+    offer_id: null, // Multi-offer support: offers stored in order_offers table
+    customer_name: input.customer_name.trim(),
+    customer_phone: phone,
+    delivery_address: input.delivery_address?.trim() || null,
+    notes: notesValue,
+    subtotal: String(validatedSubtotal),
+    delivery_fee: String(deliveryFeeNumeric),
+    tax_amount: String(input.tax_amount || 0),
+    total_amount: String(validatedTotalAmount),
+    order_method: input.order_method,
+    payment_method: input.payment_method || 'cash',
+    status: 'pending',
+    delivery_latitude: deliveryLat ? String(deliveryLat) : null,
+    delivery_longitude: deliveryLng ? String(deliveryLng) : null,
+    delivery_zone: null,
+    delivery_distance_km: deliveryDistanceKm ? String(deliveryDistanceKm) : null,
+    delivery_duration_minutes: deliveryDurationMin,
+    location_verified: deliveryLat !== null,
+    base_delivery_fee_amount: String(baseFeeAmount),
+    extra_distance_km: String(extraDistanceKm),
+    extra_fee_amount: String(Math.max(0, extraFeeAmount)),
+    weather_fee_amount: String(weatherFeeApplied),
+    peak_fee_amount: String(peakFeeApplied),
+    peak_percentage_used: String(peakPercentageApplied),
+  };
+
+  if (input.idempotency_key) {
+    insertPayload.idempotency_key = input.idempotency_key;
+  }
+
   const { data: order, error: orderError } = await supabase
     .from('orders')
-    .insert({
-      order_number: orderNumber,
-      tracking_token: trackingToken,
-      offer_id: null, // Multi-offer support: offers stored in order_offers table
-      customer_name: input.customer_name.trim(),
-      customer_phone: phone,
-      delivery_address: input.delivery_address?.trim() || null,
-      notes: notesValue,
-      subtotal: String(validatedSubtotal),
-      delivery_fee: String(deliveryFeeNumeric),
-      tax_amount: String(input.tax_amount || 0),
-      total_amount: String(validatedTotalAmount),
-      order_method: input.order_method,
-      payment_method: input.payment_method || 'cash',
-      status: 'pending',
-      delivery_latitude: deliveryLat ? String(deliveryLat) : null,
-      delivery_longitude: deliveryLng ? String(deliveryLng) : null,
-      delivery_zone: null, // Zone-based pricing removed
-      delivery_distance_km: deliveryDistanceKm ? String(deliveryDistanceKm) : null,
-      delivery_duration_minutes: deliveryDurationMin,
-      location_verified: deliveryLat !== null,
-      base_delivery_fee_amount: String(baseFeeAmount),
-      extra_distance_km: String(extraDistanceKm),
-      extra_fee_amount: String(Math.max(0, extraFeeAmount)),
-      weather_fee_amount: String(weatherFeeApplied),
-      peak_fee_amount: String(peakFeeApplied),
-      peak_percentage_used: String(peakPercentageApplied),
-    })
+    .insert(insertPayload)
     .select()
     .single();
 
   if (orderError) {
+    if (input.idempotency_key && orderError.message?.includes('duplicate key') || orderError.message?.includes('unique constraint')) {
+      const { data: existingOrder } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('idempotency_key', input.idempotency_key)
+        .maybeSingle();
+      if (existingOrder) {
+        console.log(`[CREATE_ORDER] Idempotency hit: returning existing order ${existingOrder.order_number}`);
+        return { ...existingOrder, order_number: existingOrder.order_number, tracking_token: trackingToken };
+      }
+    }
     console.error('[CREATE_ORDER] Order insert failed:', {
       orderNumber,
       customer: input.customer_name,
@@ -488,7 +507,12 @@ export async function createOrder(input: CreateOrderInput) {
       error: itemsError,
     });
 
-    await supabase.from('orders').delete().eq('id', order.id);
+    await supabase.from('orders').update({
+      status: 'cancelled',
+      is_deleted: true,
+      deleted_at: new Date().toISOString(),
+      notes: `[SYSTEM] Rolled back on items insert failure`,
+    }).eq('id', order.id);
     throw new Error(`فشل إضافة أصناف الطلب: ${itemsError.message}`);
   }
 

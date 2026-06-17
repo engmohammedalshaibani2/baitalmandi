@@ -193,6 +193,7 @@ export const orders = pgTable('orders', {
   weatherFeeAmount: numeric('weather_fee_amount').default('0'),
   peakFeeAmount: numeric('peak_fee_amount').default('0'),
   peakPercentageUsed: numeric('peak_percentage_used').default('0'),
+  idempotencyKey: text('idempotency_key'),
 });
 
 // ==========================================

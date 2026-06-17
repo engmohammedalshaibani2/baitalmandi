@@ -1,23 +1,33 @@
 'use client';
-import { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, Suspense, lazy } from 'react';
 import { Activity, TrendingUp, ShoppingBag, Users, Box, Download, Printer, FileSpreadsheet, Filter, Tag, Truck } from 'lucide-react';
 import QRCode from 'qrcode';
+import { supabase } from '@/lib/supabase';
 import { printReport } from '@/lib/printReport';
 import { exportExcelReport } from '@/lib/exportExcel';
-import { supabase } from '@/lib/supabase';
+import { getAdminName } from '@/repositories/adminRepository';
 
-import DashboardTab from '@/components/admin/reports/DashboardTab';
-import OrdersTab from '@/components/admin/reports/OrdersTab';
-import ProductsTab from '@/components/admin/reports/ProductsTab';
-import SummaryTab from '@/components/admin/reports/SummaryTab';
-import CustomersTab from '@/components/admin/reports/CustomersTab';
-import InvoicesTab from '@/components/admin/reports/InvoicesTab';
-import AuditLogsTab from '@/components/admin/reports/AuditLogsTab';
-import OffersTab from '@/components/admin/reports/OffersTab';
-import DeliveryAnalyticsTab from '@/components/admin/reports/DeliveryAnalyticsTab';
+const DashboardTab = lazy(() => import('@/components/admin/reports/DashboardTab'));
+const OrdersTab = lazy(() => import('@/components/admin/reports/OrdersTab'));
+const ProductsTab = lazy(() => import('@/components/admin/reports/ProductsTab'));
+const SummaryTab = lazy(() => import('@/components/admin/reports/SummaryTab'));
+const CustomersTab = lazy(() => import('@/components/admin/reports/CustomersTab'));
+const InvoicesTab = lazy(() => import('@/components/admin/reports/InvoicesTab'));
+const AuditLogsTab = lazy(() => import('@/components/admin/reports/AuditLogsTab'));
+const OffersTab = lazy(() => import('@/components/admin/reports/OffersTab'));
+const DeliveryAnalyticsTab = lazy(() => import('@/components/admin/reports/DeliveryAnalyticsTab'));
 
 type ReportPeriod = 'today' | 'this_week' | 'this_month' | 'custom';
 type ReportTab = 'dashboard' | 'orders' | 'products' | 'customers' | 'summary' | 'offers' | 'invoices' | 'audit' | 'delivery';
+
+function TabFallback() {
+  return (
+    <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+      <div style={{ width: '32px', height: '32px', border: '3px solid var(--gold)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 15px' }} />
+      <p>جاري تحميل التقرير...</p>
+    </div>
+  );
+}
 
 export default function ReportsPage() {
   const [period, setPeriod] = useState<ReportPeriod>('today');
@@ -32,8 +42,8 @@ export default function ReportsPage() {
     }
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return;
-      supabase.from('admin_users').select('full_name').eq('auth_user_id', user.id).maybeSingle().then(({ data }) => {
-        if (data?.full_name) setAdminName(data.full_name);
+      getAdminName(user.id).then(name => {
+        if (name) setAdminName(name);
       });
     });
   }, []);
@@ -244,43 +254,61 @@ export default function ReportsPage() {
       <div className="min-h-[400px]">
         <div className={`${activeTab === 'dashboard' ? 'block print:block' : 'hidden print:hidden'} print:break-inside-avoid print:mb-10`}>
           {activeTab === 'dashboard' && <h2 className="hidden print:block text-2xl font-bold mb-4 text-[#d4af37] border-b pb-2">لوحة القيادة</h2>}
-          <DashboardTab startDate={currentStart} endDate={currentEnd} status={statusFilter} payment={paymentFilter} search={searchQuery} />
+          <Suspense fallback={<TabFallback />}>
+            <DashboardTab startDate={currentStart} endDate={currentEnd} status={statusFilter} payment={paymentFilter} search={searchQuery} />
+          </Suspense>
         </div>
         
         <div className={`${activeTab === 'summary' ? 'block' : 'hidden'} ${activeTab === 'dashboard' || activeTab === 'summary' ? 'print:block' : 'print:hidden'} print:break-inside-avoid print:mb-10`}>
           {activeTab === 'dashboard' && <h2 className="hidden print:block text-2xl font-bold mt-8 mb-4 text-[#d4af37] border-b pb-2">مقارنة ونمو المبيعات</h2>}
-          <SummaryTab currentStart={currentStart} currentEnd={currentEnd} prevStart={prevStart} prevEnd={prevEnd} status={statusFilter} payment={paymentFilter} search={searchQuery} />
+          <Suspense fallback={<TabFallback />}>
+            <SummaryTab currentStart={currentStart} currentEnd={currentEnd} prevStart={prevStart} prevEnd={prevEnd} status={statusFilter} payment={paymentFilter} search={searchQuery} />
+          </Suspense>
         </div>
         
         <div className={`${activeTab === 'orders' ? 'block' : 'hidden'} ${activeTab === 'dashboard' || activeTab === 'orders' ? 'print:block' : 'print:hidden'} print:break-inside-avoid print:mb-10`}>
           {activeTab === 'dashboard' && <h2 className="hidden print:block text-2xl font-bold mt-8 mb-4 text-[#d4af37] border-b pb-2">سجل الطلبات</h2>}
-          <OrdersTab startDate={currentStart} endDate={currentEnd} status={statusFilter} payment={paymentFilter} search={searchQuery} />
+          <Suspense fallback={<TabFallback />}>
+            <OrdersTab startDate={currentStart} endDate={currentEnd} status={statusFilter} payment={paymentFilter} search={searchQuery} />
+          </Suspense>
         </div>
         
         <div className={`${activeTab === 'products' ? 'block' : 'hidden'} ${activeTab === 'dashboard' || activeTab === 'products' ? 'print:block' : 'print:hidden'} print:break-inside-avoid print:mb-10`}>
           {activeTab === 'dashboard' && <h2 className="hidden print:block text-2xl font-bold mt-8 mb-4 text-[#d4af37] border-b pb-2">تحليل الأطباق والأصناف</h2>}
-          <ProductsTab startDate={currentStart} endDate={currentEnd} status={statusFilter} payment={paymentFilter} search={searchQuery} />
+          <Suspense fallback={<TabFallback />}>
+            <ProductsTab startDate={currentStart} endDate={currentEnd} status={statusFilter} payment={paymentFilter} search={searchQuery} />
+          </Suspense>
         </div>
         
         <div className={`${activeTab === 'customers' ? 'block' : 'hidden'} ${activeTab === 'dashboard' || activeTab === 'customers' ? 'print:block' : 'print:hidden'} print:break-inside-avoid print:mb-10`}>
           {activeTab === 'dashboard' && <h2 className="hidden print:block text-2xl font-bold mt-8 mb-4 text-[#d4af37] border-b pb-2">تحليل العملاء</h2>}
-          <CustomersTab startDate={currentStart} endDate={currentEnd} status={statusFilter} payment={paymentFilter} search={searchQuery} />
+          <Suspense fallback={<TabFallback />}>
+            <CustomersTab startDate={currentStart} endDate={currentEnd} status={statusFilter} payment={paymentFilter} search={searchQuery} />
+          </Suspense>
         </div>
 
         <div className={`${activeTab === 'offers' ? 'block' : 'hidden'} print:break-inside-avoid print:mb-10`}>
-          <OffersTab startDate={currentStart} endDate={currentEnd} status={statusFilter} payment={paymentFilter} search={searchQuery} />
+          <Suspense fallback={<TabFallback />}>
+            <OffersTab startDate={currentStart} endDate={currentEnd} status={statusFilter} payment={paymentFilter} search={searchQuery} />
+          </Suspense>
         </div>
 
         <div className={`${activeTab === 'invoices' ? 'block' : 'hidden'} print:break-inside-avoid print:mb-10`}>
-          <InvoicesTab startDate={currentStart} endDate={currentEnd} status={statusFilter} payment={paymentFilter} search={searchQuery} />
+          <Suspense fallback={<TabFallback />}>
+            <InvoicesTab startDate={currentStart} endDate={currentEnd} status={statusFilter} payment={paymentFilter} search={searchQuery} />
+          </Suspense>
         </div>
 
         <div className={`${activeTab === 'audit' ? 'block' : 'hidden'} print:break-inside-avoid print:mb-10`}>
-          <AuditLogsTab startDate={currentStart} endDate={currentEnd} status={statusFilter} payment={paymentFilter} search={searchQuery} />
+          <Suspense fallback={<TabFallback />}>
+            <AuditLogsTab startDate={currentStart} endDate={currentEnd} status={statusFilter} payment={paymentFilter} search={searchQuery} />
+          </Suspense>
         </div>
 
         <div className={`${activeTab === 'delivery' ? 'block' : 'hidden'} print:break-inside-avoid print:mb-10`}>
-          <DeliveryAnalyticsTab startDate={currentStart} endDate={currentEnd} status={statusFilter} payment={paymentFilter} search={searchQuery} />
+          <Suspense fallback={<TabFallback />}>
+            <DeliveryAnalyticsTab startDate={currentStart} endDate={currentEnd} status={statusFilter} payment={paymentFilter} search={searchQuery} />
+          </Suspense>
         </div>
       </div>
 

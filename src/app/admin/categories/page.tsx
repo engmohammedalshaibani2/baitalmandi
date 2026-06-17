@@ -1,11 +1,13 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { Plus, Edit2, Trash2, Save, X } from 'lucide-react';
-import { getNextSortOrder, reindexSortOrders } from '@/lib/ordering';
+import { reindexSortOrders, shiftSortOrdersUp } from '@/lib/ordering';
+import { getCategories, createCategory, updateCategory, deleteCategory, getCategorySortOrder } from '@/repositories/categoryRepository';
+import { useOrderRealtime } from '@/realtime/OrderRealtimeProvider';
 
 export default function CategoriesPage() {
+  const { subscribeToTable } = useOrderRealtime();
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -21,11 +23,13 @@ export default function CategoriesPage() {
     fetchCategories();
   }, []);
 
+  useEffect(() => {
+    const unsub = subscribeToTable('categories', () => { fetchCategories(); });
+    return unsub;
+  }, [subscribeToTable]);
+
   async function fetchCategories() {
-    const { data } = await supabase
-      .from('categories')
-      .select('*')
-      .order('sort_order', { ascending: true });
+    const data = await getCategories();
     if (data) setCategories(data);
     setLoading(false);
   }
@@ -53,13 +57,10 @@ export default function CategoriesPage() {
     setLoading(true);
 
     const parsedOrder = parseInt(order);
-    const isManualOrder = !isEditing && parsedOrder > 0;
-
-    let sortOrder = parsedOrder;
 
     try {
       if (isEditing && editingId) {
-        const { data: oldCat } = await supabase.from('categories').select('sort_order').eq('id', editingId).single();
+        const oldCat = await getCategorySortOrder(editingId);
         const payload = {
           name_ar: nameAr,
           name_en: nameEn || nameAr,
@@ -67,8 +68,7 @@ export default function CategoriesPage() {
           sort_order: parsedOrder,
           is_active: isActive,
         };
-        const { error } = await supabase.from('categories').update(payload).eq('id', editingId);
-        if (error) throw error;
+        await updateCategory(editingId, payload);
 
         if (parsedOrder > 0 && oldCat && oldCat.sort_order !== parsedOrder) {
           console.log('[CATEGORY_ORDER_MANUAL_OVERRIDE]', {
@@ -79,39 +79,26 @@ export default function CategoriesPage() {
           await reindexSortOrders('categories');
         }
       } else {
-        if (!isManualOrder) {
-          const next = await getNextSortOrder('categories', 'prepend');
-          sortOrder = next.sortOrder;
-          if (next.needsReindex) {
-            await reindexSortOrders('categories');
-          }
-          console.log('[CATEGORY_ORDER_AUTO_INSERT]', {
-            categoryName: nameAr,
-            newOrder: sortOrder,
-          });
-        } else {
-          console.log('[CATEGORY_ORDER_MANUAL_OVERRIDE]', {
-            categoryName: nameAr,
-            newOrder: sortOrder,
-          });
-        }
+        await shiftSortOrdersUp('categories');
+        console.log('[CATEGORY_ORDER_CREATE]', {
+          categoryName: nameAr,
+          action: 'shift_existing_up',
+        });
 
         const payload = {
           name_ar: nameAr,
           name_en: nameEn || nameAr,
           slug: (nameEn || nameAr).toLowerCase().replace(/[^a-z0-9]+/gi, '-') + '-' + Date.now(),
-          sort_order: sortOrder,
+          sort_order: 1,
           is_active: isActive,
         };
-        const { error } = await supabase.from('categories').insert([payload]);
-        if (error) throw error;
+        await createCategory(payload);
 
-        if (isManualOrder) {
-          await reindexSortOrders('categories');
-          console.log('[CATEGORY_ORDER_REINDEXED]', {
-            reason: 'manual_order_insert',
-          });
-        }
+        await reindexSortOrders('categories');
+        console.log('[CATEGORY_ORDER_CREATED]', {
+          categoryName: nameAr,
+          assignedOrder: 1,
+        });
       }
       resetForm();
       await fetchCategories();
@@ -124,7 +111,7 @@ export default function CategoriesPage() {
   const handleDelete = async (id: string) => {
     if (confirm('هل أنت متأكد من حذف هذا التصنيف؟ تحذير: قد يؤثر هذا على الأطباق المرتبطة به.')) {
       setLoading(true);
-      await supabase.from('categories').delete().eq('id', id);
+      await deleteCategory(id);
       await fetchCategories();
     }
   };

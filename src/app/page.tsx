@@ -3,12 +3,14 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { supabase } from '@/lib/supabase';
 import { useSettings } from '@/lib/settings-context';
+import { getOffers } from '@/repositories/offerRepository';
+import { getFeaturedReviews } from '@/repositories/reviewRepository';
 import { calculateOfferPrice, resolveItemPrice } from '@/lib/offer-pricing';
 import { fetchHomepageGalleryImages } from '@/lib/homepage-gallery';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Phone, MapPin, ChevronLeft, Pause, Play, Award, Clock, Truck, Users, CheckCircle, Smile, UtensilsCrossed, Star } from 'lucide-react';
+import { useOrderRealtime } from '@/realtime/OrderRealtimeProvider';
 
 const WhatsAppIcon = ({ size = 24, color = "currentColor" }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -17,6 +19,7 @@ const WhatsAppIcon = ({ size = 24, color = "currentColor" }) => (
 );
 
 export default function Home() {
+  const { subscribeToTable } = useOrderRealtime();
   const { settings } = useSettings();
   const rn = settings['restaurant_name'] || 'بيت المندي';
   const phoneReservations = settings['phone_reservations'] || '01/465888';
@@ -59,6 +62,12 @@ export default function Home() {
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    const tbls = ['offers', 'reviews', 'gallery_images'];
+    const unsubs = tbls.map(t => subscribeToTable(t, () => { fetchData(); }));
+    return () => { unsubs.forEach(u => u()); };
+  }, [subscribeToTable]);
+
   // Auto-rotate gallery images every 10s (only if more than 1)
   useEffect(() => {
     if (galleryImages.length <= 1) return;
@@ -78,20 +87,9 @@ export default function Home() {
   }, [galleryImages.length]);
 
   async function fetchData() {
-    const now = new Date().toISOString();
-    const [{ data: offersData }, { data: reviewsData }, galleryData] = await Promise.all([
-      supabase.from('offers').select(`
-        *,
-        offer_items(*, menu_item:menu_item_id(*, item_prices(*)))
-      `)
-        .eq('status', 'active')
-        .eq('is_active', true)
-        .is('deleted_at', null)
-        .lte('start_date', now)
-        .gte('end_date', now)
-        .order('created_at', { ascending: false })
-        .limit(6),
-      supabase.from('reviews').select('*').eq('is_featured', true).order('created_at', { ascending: false }).limit(6),
+    const [offersData, reviewsData, galleryData] = await Promise.all([
+      getOffers(),
+      getFeaturedReviews(6),
       fetchHomepageGalleryImages(),
     ]);
 

@@ -3,10 +3,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useCartStore } from '@/store/cartStore';
-import { supabase } from '@/lib/supabase';
+import { getPublicMenuCategories, getPublicMenuItems, getPublicMenuOffers } from '@/repositories/menuRepository';
 import { calculateOfferPrice, resolveItemPrice, offerTypeLabel } from '@/lib/offer-pricing';
 import { useSettings } from '@/lib/settings-context';
 import { ShoppingCart, Plus, Tag, Search, Percent, Gift } from 'lucide-react';
+import { useOrderRealtime } from '@/realtime/OrderRealtimeProvider';
 
 export default function MenuPage() {
   const [categories, setCategories] = useState<any[]>([]);
@@ -24,6 +25,7 @@ export default function MenuPage() {
   const cartItems = useCartStore((state) => state.items);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
+  const { subscribeToTable } = useOrderRealtime();
   const { settings } = useSettings();
   const currency = settings['currency'] || 'ريال';
 
@@ -31,21 +33,16 @@ export default function MenuPage() {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    const unsubs = ['items', 'categories', 'offers'].map(t => subscribeToTable(t, () => { fetchData(); }));
+    return () => { unsubs.forEach(u => u()); };
+  }, [subscribeToTable]);
+
   async function fetchData() {
-    const now = new Date().toISOString();
-    const [{ data: catsData }, { data: menuData }, { data: offersData }] = await Promise.all([
-      supabase.from('categories').select('*').eq('is_active', true).order('sort_order', { ascending: true }),
-      supabase.from('items').select('*, categories(name_ar), item_prices(*)').eq('is_active', true).order('sort_order', { ascending: true }),
-      supabase.from('offers').select(`
-        *,
-        offer_items(*, menu_item:menu_item_id(*, item_prices(*)))
-      `)
-        .eq('status', 'active')
-        .eq('is_active', true)
-        .is('deleted_at', null)
-        .lte('start_date', now)
-        .gte('end_date', now)
-        .order('created_at', { ascending: false }),
+    const [catsData, menuData, offersData] = await Promise.all([
+      getPublicMenuCategories(),
+      getPublicMenuItems(),
+      getPublicMenuOffers(),
     ]);
 
     if (catsData) setCategories(catsData);

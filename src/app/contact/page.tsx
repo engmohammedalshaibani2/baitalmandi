@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { useSettings } from '@/lib/settings-context';
+import { createReview } from '@/repositories/reviewRepository';
 import { MapPin, Clock, Send, Star, CheckCircle } from 'lucide-react';
 
 // WhatsApp SVG Icon
@@ -41,17 +41,13 @@ export default function ContactPage() {
     if (!name.trim() || !comment.trim()) return;
     setSubmitting(true);
     try {
-      const { error } = await supabase.from('reviews').insert([{
+      await createReview({
         reviewer_name: name.trim(),
         rating,
         comment_ar: comment.trim(),
         source,
         is_featured: false,
-      }]);
-
-      if (error) {
-        throw error;
-      }
+      });
 
       setSubmitted(true);
       setName('');

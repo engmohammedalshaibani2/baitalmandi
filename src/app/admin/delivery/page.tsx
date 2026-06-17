@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
 import { useSettings } from '@/lib/settings-context';
+import { getSettingsByKeys, upsertBulkSettings } from '@/repositories/settingsRepository';
 import { Save, MapPin, Truck, CloudSun, Clock, ToggleLeft, ToggleRight, CalendarDays } from 'lucide-react';
 
 import 'leaflet/dist/leaflet.css';
@@ -64,10 +64,7 @@ export default function AdminDeliveryPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const { data: sData } = await supabase
-        .from('site_settings')
-        .select('setting_key, value')
-        .in('setting_key', SETTINGS_KEYS);
+      const sData = await getSettingsByKeys(SETTINGS_KEYS);
 
       const sMap: Record<string, string> = { ...DEFAULT_SETTINGS };
       if (sData) {
@@ -83,7 +80,7 @@ export default function AdminDeliveryPage() {
           setting_key: k,
           value: sMap[k],
         }));
-        await supabase.from('site_settings').upsert(upsertData, { onConflict: 'setting_key' });
+        await upsertBulkSettings(upsertData);
       }
     } catch (err) {
       console.error('[AdminDelivery] load error:', err);
@@ -215,11 +212,7 @@ export default function AdminDeliveryPage() {
         setting_key: k,
         value: settings[k] ?? DEFAULT_SETTINGS[k],
       }));
-      const { error: sErr } = await supabase
-        .from('site_settings')
-        .upsert(settingsPayload, { onConflict: 'setting_key' });
-
-      if (sErr) throw sErr;
+      await upsertBulkSettings(settingsPayload);
 
       setSaveMessage('✓ تم حفظ إعدادات التوصيل بنجاح!');
       refresh();

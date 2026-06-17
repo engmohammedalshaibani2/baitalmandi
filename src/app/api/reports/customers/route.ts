@@ -9,6 +9,30 @@ export async function GET(request: Request) {
   try {
     const supabase = await createClient();
 
+    // Try materialized view first (MV has all-time data; filter by date range falls back to live)
+    let mvCustomers = null;
+    try {
+      const { data } = await supabase.from('mv_customer_metrics').select('*').limit(100);
+      mvCustomers = data;
+    } catch {}
+
+    if (mvCustomers && mvCustomers.length > 0) {
+      const sorted = mvCustomers
+        .sort((a: any, b: any) => Number(b.total_spent) - Number(a.total_spent))
+        .slice(0, 50)
+        .map((c: any) => ({
+          name: c.customer_name,
+          phone: c.customer_phone,
+          ordersCount: Number(c.order_count),
+          spend: Number(c.total_spent),
+          avgOrder: Number(c.order_count) > 0 ? Number(c.total_spent) / Number(c.order_count) : 0,
+          lastOrder: c.last_order_date,
+        }));
+
+      return NextResponse.json(sorted);
+    }
+
+    // Fallback: live aggregation
     const { data: orders } = await supabase
       .from('orders')
       .select('customer_name, customer_phone, total_amount, created_at')
@@ -34,14 +58,7 @@ export async function GET(request: Request) {
     const result = Array.from(customerMap.values())
       .sort((a, b) => b.spend - a.spend)
       .slice(0, 50)
-      .map(c => ({
-        name: c.name,
-        phone: c.phone,
-        ordersCount: c.ordersCount,
-        spend: c.spend,
-        avgOrder: c.ordersCount > 0 ? c.spend / c.ordersCount : 0,
-        lastOrder: c.lastOrder,
-      }));
+      .map(c => ({ name: c.name, phone: c.phone, ordersCount: c.ordersCount, spend: c.spend, avgOrder: c.ordersCount > 0 ? c.spend / c.ordersCount : 0, lastOrder: c.lastOrder }));
 
     return NextResponse.json(result);
   } catch (err) {

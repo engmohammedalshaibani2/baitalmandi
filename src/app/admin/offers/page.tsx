@@ -2,9 +2,11 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getOffers, getAllActiveItems, updateOffer, deleteOfferItems, insertOfferItems, createOffer, deleteOffer, toggleOfferActive } from '@/repositories/offerRepository';
 import { calculateOfferPrice, resolveItemPrice, offerTypeLabel } from '@/lib/offer-pricing';
 import { Plus, Edit2, Trash2, Save, X, Tag } from 'lucide-react';
 import { useSettings } from '@/lib/settings-context';
+import { useOrderRealtime } from '@/realtime/OrderRealtimeProvider';
 
 const OFFER_TYPES = ['fixed_price', 'percentage_discount', 'amount_discount', 'free_item'] as const;
 
@@ -32,17 +34,20 @@ export default function AdminOffersPage() {
   const [imageUrl, setImageUrl] = useState('');
   const [endDate, setEndDate] = useState('');
   const [isActive, setIsActive] = useState(true);
+  const { subscribeToTable } = useOrderRealtime();
   const [bundleItems, setBundleItems] = useState<BundleRow[]>([{ itemId: '', priceId: '', quantity: 1 }]);
 
   useEffect(() => { fetchData(); }, []);
 
+  useEffect(() => {
+    const unsubs = ['offers', 'items', 'item_prices'].map(t => subscribeToTable(t, () => { fetchData(); }));
+    return () => { unsubs.forEach(u => u()); };
+  }, [subscribeToTable]);
+
   async function fetchData() {
-    const [{ data: offersData }, { data: itemsData }] = await Promise.all([
-      supabase
-        .from('offers')
-        .select('*, items(name_ar, item_prices(*)), offer_items(*, menu_item:menu_item_id(*, item_prices(*)))')
-        .order('created_at', { ascending: false }),
-      supabase.from('items').select('*, item_prices(*)').eq('is_active', true),
+    const [offersData, itemsData] = await Promise.all([
+      getOffers(),
+      getAllActiveItems(),
     ]);
     if (offersData) setOffers(offersData);
     if (itemsData) setMenuItems(itemsData);
@@ -172,11 +177,9 @@ export default function AdminOffersPage() {
       if (isEditing && editingId) {
         // ── UPDATE FLOW ──
         console.log('[OFFER_ITEMS] Editing offer:', editingId);
-        const { error: updateError } = await supabase.from('offers').update(payload).eq('id', editingId);
-        if (updateError) throw updateError;
+        await updateOffer(editingId, payload);
 
-        const { error: deleteError } = await supabase.from('offer_items').delete().eq('offer_id', editingId);
-        if (deleteError) throw deleteError;
+        await deleteOfferItems(editingId);
 
         // Resolve prices for each selected item
         const rowsToInsert = activeBundleItems.map(b => {
@@ -194,16 +197,14 @@ export default function AdminOffersPage() {
         // REQUIREMENT 5b: Log final insert payload
         console.log('[OFFER_ITEMS] Insert payload (edit):', JSON.parse(JSON.stringify(rowsToInsert)));
 
-        const { data: inserted, error: insertError } = await supabase.from('offer_items').insert(rowsToInsert).select();
-        if (insertError) throw insertError;
+        const inserted = await insertOfferItems(rowsToInsert);
 
         // REQUIREMENT 5c: Log number of inserted rows
         console.log(`[OFFER_ITEMS] Inserted ${inserted?.length || 0} offer_items rows (edit)`);
       } else {
         // ── CREATE FLOW ──
         console.log('[OFFER_ITEMS] Creating new offer');
-        const { data, error } = await supabase.from('offers').insert([payload]).select().single();
-        if (error) throw error;
+        const data = await createOffer(payload);
 
         // Resolve prices for each selected item
         const rowsToInsert = activeBundleItems.map(b => {
@@ -221,11 +222,7 @@ export default function AdminOffersPage() {
         // REQUIREMENT 5b: Log final insert payload
         console.log('[OFFER_ITEMS] Insert payload (create):', JSON.parse(JSON.stringify(rowsToInsert)));
 
-        const { data: inserted, error: insertError } = await supabase.from('offer_items').insert(rowsToInsert).select();
-        if (insertError) {
-          console.error('[OFFER_ITEMS] Insert error:', insertError);
-          throw insertError;
-        }
+        const inserted = await insertOfferItems(rowsToInsert);
 
         // REQUIREMENT 5c: Log number of inserted rows
         console.log(`[OFFER_ITEMS] Inserted ${inserted?.length || 0} offer_items rows (create)`);
@@ -242,15 +239,14 @@ export default function AdminOffersPage() {
 
   const handleDelete = async (id: string) => {
     if (confirm('هل أنت متأكد من حذف هذا العرض؟')) {
-      await supabase.from('offer_items').delete().eq('offer_id', id);
-      await supabase.from('offers').delete().eq('id', id);
+      await deleteOffer(id);
       await fetchData();
     }
   };
 
   const handleToggleActive = async (id: string, current: boolean) => {
     const next = !current;
-    await supabase.from('offers').update({ is_active: next, status: next ? 'active' : 'disabled' }).eq('id', id);
+    await toggleOfferActive(id, next);
     setOffers(prev => prev.map(o => o.id === id ? { ...o, is_active: next, status: next ? 'active' : 'disabled' } : o));
   };
 

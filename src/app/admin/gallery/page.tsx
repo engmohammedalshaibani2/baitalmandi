@@ -1,11 +1,14 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { getGalleryImages, insertGalleryImage, deleteGalleryImage, updateGalleryImage } from '@/repositories/galleryRepository';
 import { supabase } from '@/lib/supabase';
 import { Trash2, Plus, Upload, Home } from 'lucide-react';
 import { getNextSortOrder, reindexSortOrders } from '@/lib/ordering';
+import { useOrderRealtime } from '@/realtime/OrderRealtimeProvider';
 
 export default function AdminGalleryPage() {
+  const { subscribeToTable } = useOrderRealtime();
   const [images, setImages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [imageUrl, setImageUrl] = useState('');
@@ -14,8 +17,13 @@ export default function AdminGalleryPage() {
 
   useEffect(() => { fetchImages(); }, []);
 
+  useEffect(() => {
+    const unsub = subscribeToTable('gallery_images', () => { fetchImages(); });
+    return unsub;
+  }, [subscribeToTable]);
+
   async function fetchImages() {
-    const { data } = await supabase.from('gallery_images').select('*').order('sort_order', { ascending: true });
+    const data = await getGalleryImages();
     if (data) setImages(data);
     setLoading(false);
   }
@@ -27,7 +35,7 @@ export default function AdminGalleryPage() {
     return next;
   };
 
-  const insertGalleryImage = async (url: string) => {
+  const handleInsertGalleryImage = async (url: string) => {
     const parsedOrder = parseInt(order);
     const { sortOrder, needsReindex } = await getGallerySortOrder(parsedOrder);
 
@@ -40,18 +48,18 @@ export default function AdminGalleryPage() {
       console.log('[GALLERY_ORDER_MANUAL_OVERRIDE]', { newOrder: parsedOrder });
     }
 
-    await supabase.from('gallery_images').insert([{
+    await insertGalleryImage({
       image_url: url,
       category: category || 'عام',
       sort_order: sortOrder,
       is_active: true,
       show_on_homepage: false,
-    }]);
+    });
   };
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    await insertGalleryImage(imageUrl);
+    await handleInsertGalleryImage(imageUrl);
     setImageUrl(''); setCategory(''); setOrder('0');
     await fetchImages();
   };
@@ -67,9 +75,15 @@ export default function AdminGalleryPage() {
       const { error: uploadError } = await supabase.storage.from('gellary').upload(fileName, file);
       if (uploadError) throw uploadError;
 
-      const { data } = supabase.storage.from('gellary').getPublicUrl(fileName);
+      const { data: urlData } = supabase.storage.from('gellary').getPublicUrl(fileName);
 
-      await insertGalleryImage(data.publicUrl);
+      await insertGalleryImage({
+        image_url: urlData.publicUrl,
+        category: category || 'عام',
+        sort_order: 0,
+        is_active: true,
+        show_on_homepage: false,
+      });
       await fetchImages();
     } catch (err: any) {
       alert('حدث خطأ: ' + err.message);
@@ -79,16 +93,17 @@ export default function AdminGalleryPage() {
 
   const handleDelete = async (id: string) => {
     if (confirm('هل أنت متأكد من حذف هذه الصورة؟')) {
-      await supabase.from('gallery_images').delete().eq('id', id);
+      await deleteGalleryImage(id);
       await fetchImages();
     }
   };
 
   const handleToggleHomepage = async (id: string, current: boolean) => {
     const next = !current;
-    const { error } = await supabase.from('gallery_images').update({ show_on_homepage: next }).eq('id', id);
-    if (error) {
-      alert('حدث خطأ: ' + error.message);
+    try {
+      await updateGalleryImage(id, { show_on_homepage: next });
+    } catch (err: any) {
+      alert('حدث خطأ: ' + (err?.message || 'unknown'));
       return;
     }
     setImages(prev => prev.map(img => img.id === id ? { ...img, show_on_homepage: next } : img));

@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { useSettings } from '@/lib/settings-context';
+import { upsertBulkSettings } from '@/repositories/settingsRepository';
+import { archiveDeliveredOrders } from '@/repositories/adminRepository';
 import { Save, Settings, Phone, Clock, Truck, MessageCircle, Wallet, Banknote, Plus, Trash2, ToggleLeft, ToggleRight, Shield } from 'lucide-react';
 import { updateDeveloperSettings } from '@/actions/settings';
 import { getCurrentAdmin } from '@/app/admin/orders/actions';
@@ -104,14 +105,9 @@ export default function AdminSettingsPage() {
       { setting_key: 'payment_banks', value: JSON.stringify(banks) },
     ];
 
-    const { error } = await supabase.from('site_settings').upsert(upsertData, { onConflict: 'setting_key' });
-
-    if (error) {
-      setSaveMessage('⚠️ حدث خطأ أثناء الحفظ: ' + error.message);
-    } else {
-      setSaveMessage('✓ تم حفظ الإعدادات بنجاح!');
-      refresh();
-    }
+    await upsertBulkSettings(upsertData);
+    setSaveMessage('✓ تم حفظ الإعدادات بنجاح!');
+    refresh();
 
     setSaving(false);
     setTimeout(() => setSaveMessage(''), 4000);
@@ -407,7 +403,7 @@ export default function AdminSettingsPage() {
             <button
               onClick={async () => {
                 if (confirm('تحذير: هل تريد مسح جميع الطلبات المكتملة؟ لا يمكن التراجع عن هذا.')) {
-                  await supabase.from('orders').update({ is_archived: true, archived_at: new Date().toISOString() }).eq('status', 'delivered');
+                  await archiveDeliveredOrders();
                   alert('تم مسح الطلبات المكتملة بنجاح.');
                 }
               }}

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
@@ -8,6 +8,7 @@ import { useSettings } from '@/lib/settings-context';
 import InvoiceModal from '@/components/invoice/InvoiceModal';
 import { getOrderOffers, type OrderOfferSnapshot } from '@/actions/orders-offers';
 import { extractBundleFromNotes, snapshotToBundleInfo, type OrderBundleInfo } from '@/lib/bundle-utils';
+import { useOrderRealtime } from '@/realtime/OrderRealtimeProvider';
 import {
   ShoppingBag, Clock, ChefHat, Truck, CheckCircle, XCircle,
   Phone, MapPin, Printer, MessageCircle, ChevronDown, ChevronUp,
@@ -41,60 +42,69 @@ export default function TokenTrackingPage() {
   const restaurantName = settings['restaurant_name'] || 'بيت المندي';
   const whatsappNum = settings['phone_delivery_whatsapp'] || settings['whatsapp_order_number'] || '';
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const { data, error: err } = await supabase
-          .from('orders')
-          .select(`*, items:order_items(*)`)
-          .eq('tracking_token', token)
-          .order('created_at', { ascending: false });
+  const { subscribeToToken } = useOrderRealtime();
 
-        if (err) throw err;
-        if (!data || data.length === 0) {
-          setError('لا توجد طلبات مرتبطة بهذا الرابط');
-        } else {
-          setOrders(data);
-          // Fetch order_offers for all orders in batch
-          const orderIds = data.map(o => o.id);
-          const { data: offersData } = await supabase
-            .from('order_offers')
-            .select('*, items:order_offer_items(*)')
-            .in('order_id', orderIds);
-          const map: Record<string, OrderOfferSnapshot[]> = {};
-          for (const o of offersData || []) {
-            if (!map[o.order_id]) map[o.order_id] = [];
-            map[o.order_id].push({
-              id: o.id,
-              orderId: o.order_id,
-              offerId: o.offer_id,
-              offerName: o.offer_name,
-              offerType: o.offer_type,
-              originalPrice: Number(o.original_price),
-              discountAmount: Number(o.discount_amount),
-              discountPercent: Number(o.discount_percent),
-              finalPrice: Number(o.final_price),
-              quantity: Number(o.quantity) || 1,
-              items: (o.items || []).map((i: any) => ({
-                id: i.id,
-                orderOfferId: i.order_offer_id,
-                itemName: i.item_name,
-                sizeLabel: i.size_label,
-                quantity: i.quantity,
-                unitPrice: Number(i.unit_price),
-                totalPrice: Number(i.total_price),
-              })),
-            });
-          }
-          setOrderOffersMap(map);
-        }
-      } catch {
+  const fetchOrdersByToken = useCallback(async () => {
+    try {
+      const { data, error: err } = await supabase
+        .from('orders')
+        .select(`*, items:order_items(*)`)
+        .eq('tracking_token', token)
+        .order('created_at', { ascending: false });
+
+      if (err) throw err;
+      if (!data || data.length === 0) {
         setError('لا توجد طلبات مرتبطة بهذا الرابط');
-      } finally {
-        setLoading(false);
+      } else {
+        setOrders(data);
+        const orderIds = data.map(o => o.id);
+        const { data: offersData } = await supabase
+          .from('order_offers')
+          .select('*, items:order_offer_items(*)')
+          .in('order_id', orderIds);
+        const map: Record<string, OrderOfferSnapshot[]> = {};
+        for (const o of offersData || []) {
+          if (!map[o.order_id]) map[o.order_id] = [];
+          map[o.order_id].push({
+            id: o.id,
+            orderId: o.order_id,
+            offerId: o.offer_id,
+            offerName: o.offer_name,
+            offerType: o.offer_type,
+            originalPrice: Number(o.original_price),
+            discountAmount: Number(o.discount_amount),
+            discountPercent: Number(o.discount_percent),
+            finalPrice: Number(o.final_price),
+            quantity: Number(o.quantity) || 1,
+            items: (o.items || []).map((i: any) => ({
+              id: i.id,
+              orderOfferId: i.order_offer_id,
+              itemName: i.item_name,
+              sizeLabel: i.size_label,
+              quantity: i.quantity,
+              unitPrice: Number(i.unit_price),
+              totalPrice: Number(i.total_price),
+            })),
+          });
+        }
+        setOrderOffersMap(map);
       }
-    })();
+    } catch {
+      setError('لا توجد طلبات مرتبطة بهذا الرابط');
+    } finally {
+      setLoading(false);
+    }
   }, [token]);
+
+  useEffect(() => { fetchOrdersByToken(); }, [fetchOrdersByToken]);
+
+  // Realtime: listen for changes to orders matching this token only (server-side filter)
+  useEffect(() => {
+    const unsub = subscribeToToken(token, () => {
+      fetchOrdersByToken();
+    });
+    return unsub;
+  }, [subscribeToToken, token, fetchOrdersByToken]);
 
   const customerName = orders[0]?.customer_name || '';
   const customerPhone = orders[0]?.customer_phone || '';

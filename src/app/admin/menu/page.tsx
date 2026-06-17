@@ -1,12 +1,15 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { Plus, Edit2, Trash2, Save, X, ChevronDown, ChevronUp, DollarSign, Package, Upload } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { getMenuItems, getMenuCategories, getItemPrices, createItem, updateItem, deleteItem, deleteItemPrices, insertItemPrices, getItemSortOrder } from '@/repositories/menuRepository';
 import { useSettings } from '@/lib/settings-context';
-import { getNextSortOrder, reindexSortOrders, shiftSortOrdersUp } from '@/lib/ordering';
+import { reindexSortOrders, shiftSortOrdersUp } from '@/lib/ordering';
+import { useOrderRealtime } from '@/realtime/OrderRealtimeProvider';
 
 export default function MenuPage() {
+  const { subscribeToTable } = useOrderRealtime();
   const { settings } = useSettings();
   const currency = settings['currency'] || 'ريال';
   const [items, setItems] = useState<any[]>([]);
@@ -26,18 +29,18 @@ export default function MenuPage() {
   const [filterCategory, setFilterCategory] = useState<string>('all');
 
   const fetchData = async () => {
-    const [itemsRes, catsRes, pricesRes] = await Promise.all([
-      supabase.from('items').select(`*, category:categories(name_ar)`).order('sort_order', { ascending: true }),
-      supabase.from('categories').select('id, name_ar').order('sort_order', { ascending: true }),
-      supabase.from('item_prices').select('*')
+    const [itemsData, catsData, pricesData] = await Promise.all([
+      getMenuItems(),
+      getMenuCategories(),
+      getItemPrices()
     ]);
 
-    if (catsRes.data) setCategories(catsRes.data);
+    if (catsData) setCategories(catsData);
     
-    if (itemsRes.data) {
-      const itemsWithPrices = itemsRes.data.map(item => ({
+    if (itemsData) {
+      const itemsWithPrices = itemsData.map(item => ({
         ...item,
-        prices: pricesRes.data ? pricesRes.data.filter((p: any) => p.item_id === item.id) : []
+        prices: pricesData ? pricesData.filter((p: any) => p.item_id === item.id) : []
       }));
       setItems(itemsWithPrices);
     }
@@ -46,26 +49,17 @@ export default function MenuPage() {
 
   useEffect(() => { fetchData(); }, []);
 
+  useEffect(() => {
+    const unsubs = ['items', 'item_prices'].map(t => subscribeToTable(t, () => { fetchData(); }));
+    return () => { unsubs.forEach(u => u()); };
+  }, [subscribeToTable]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
 
     try {
-      let sortOrder = form.sort_order;
-      const isManualOrder = sortOrder !== 0;
-
-      if (!isManualOrder) {
-        const next = await getNextSortOrder('items', 'append', 'category_id', form.category_id);
-        sortOrder = next.sortOrder;
-        console.log('[MENU_ORDER_AUTO_GENERATED]', {
-          itemName: form.name_ar,
-          categoryId: form.category_id,
-          newOrder: sortOrder,
-          orderingStrategy: 'append',
-        });
-      }
-
-      const payload = {
+      const payloadBase = {
         category_id: form.category_id || null,
         name_ar: form.name_ar,
         name_en: form.name_en || form.name_ar,
@@ -74,49 +68,40 @@ export default function MenuPage() {
         image: form.image || null,
         is_available: form.is_available,
         is_best_seller: form.is_best_seller,
-        sort_order: sortOrder,
       };
 
       let currentItemId = editingId;
 
       if (editingId) {
-        const { data: oldItem } = await supabase.from('items').select('sort_order, category_id').eq('id', editingId).single();
-        await supabase.from('items').update(payload).eq('id', editingId);
+        const oldItem = await getItemSortOrder(editingId);
+        const parsedSort = form.sort_order || oldItem?.sort_order || 0;
+        await updateItem(editingId, { ...payloadBase, sort_order: parsedSort });
 
-        if (isManualOrder && oldItem && oldItem.category_id !== form.category_id) {
+        if (parsedSort > 0 && oldItem && oldItem.category_id !== form.category_id) {
           await reindexSortOrders('items', 'category_id', oldItem.category_id);
         }
-        if (isManualOrder) {
-          console.log('[MENU_ORDER_MANUAL_OVERRIDE]', {
-            itemId: editingId,
-            categoryId: form.category_id,
-            previousOrder: oldItem?.sort_order,
-            newOrder: sortOrder,
-          });
-        }
       } else {
-        if (isManualOrder) {
-          await shiftSortOrdersUp('items', 'category_id', form.category_id);
-          console.log('[MENU_ORDER_MANUAL_OVERRIDE]', {
-            itemName: form.name_ar,
-            categoryId: form.category_id,
-            newOrder: sortOrder,
-            orderingStrategy: 'manual',
-          });
-        }
+        await shiftSortOrdersUp('items', 'category_id', form.category_id);
+        console.log('[MENU_ORDER_CREATE]', {
+          itemName: form.name_ar,
+          categoryId: form.category_id,
+          action: 'shift_existing_up',
+        });
 
-        const { data: newItem, error } = await supabase.from('items').insert([payload]).select().single();
-        if (error) throw error;
+        const newItem = await createItem({ ...payloadBase, sort_order: 1 });
         currentItemId = newItem.id;
-      }
 
-      if (isManualOrder) {
         await reindexSortOrders('items', 'category_id', form.category_id);
+        console.log('[MENU_ORDER_CREATED]', {
+          itemName: form.name_ar,
+          categoryId: form.category_id,
+          assignedOrder: 1,
+        });
       }
 
       // Handle prices
       if (currentItemId) {
-        await supabase.from('item_prices').delete().eq('item_id', currentItemId);
+        await deleteItemPrices(currentItemId);
         const validPrices = prices.filter(p => p.size_label_ar && p.original_price).map(p => ({
           item_id: currentItemId,
           size_label_ar: p.size_label_ar,
@@ -126,7 +111,7 @@ export default function MenuPage() {
           is_active: p.is_active ?? true
         }));
         if (validPrices.length > 0) {
-          await supabase.from('item_prices').insert(validPrices);
+          await insertItemPrices(validPrices);
         }
       }
 
@@ -168,9 +153,7 @@ export default function MenuPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('هل أنت متأكد من حذف هذا الصنف وجميع أسعاره؟')) return;
     try {
-      await supabase.from('item_prices').delete().eq('item_id', id);
-      await supabase.from('offers').delete().eq('item_id', id);
-      await supabase.from('items').delete().eq('id', id);
+      await deleteItem(id);
       fetchData();
     } catch (err: any) {
       alert('حدث خطأ: ' + err.message);

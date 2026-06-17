@@ -1,10 +1,12 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { X } from 'lucide-react';
+import { getGalleryImages } from '@/repositories/galleryRepository';
+import { useOrderRealtime } from '@/realtime/OrderRealtimeProvider';
 
 export default function GalleryPage() {
+  const { subscribeToTable } = useOrderRealtime();
   const [images, setImages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState('all');
@@ -14,8 +16,13 @@ export default function GalleryPage() {
     fetchImages();
   }, []);
 
+  useEffect(() => {
+    const unsub = subscribeToTable('gallery_images', () => { fetchImages(); });
+    return unsub;
+  }, [subscribeToTable]);
+
   async function fetchImages() {
-    const { data } = await supabase.from('gallery_images').select('*').order('sort_order', { ascending: true });
+    const data = await getGalleryImages();
     if (data && data.length > 0) {
       setImages(data);
     } else {

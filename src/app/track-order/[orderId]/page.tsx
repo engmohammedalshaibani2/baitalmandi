@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
@@ -8,6 +8,7 @@ import { useSettings } from '@/lib/settings-context';
 import InvoiceModal from '@/components/invoice/InvoiceModal';
 import { getOrderOffers, type OrderOfferSnapshot } from '@/actions/orders-offers';
 import { extractBundleFromNotes, snapshotToBundleInfo, type OrderBundleInfo } from '@/lib/bundle-utils';
+import { useOrderRealtime } from '@/realtime/OrderRealtimeProvider';
 import { ShoppingBag, CheckCircle, Clock, ChefHat, Truck, XCircle, MapPin, Phone, Printer, AlertTriangle, Percent } from 'lucide-react';
 
 const STATUS_CONFIG: Record<string, { label: string; icon: React.ElementType; color: string }> = {
@@ -36,9 +37,6 @@ export default function TrackOrderPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showInvoice, setShowInvoice] = useState(false);
-
-  const realtimeRef = useRef<boolean>(true);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const token = order?.tracking_token || orderId;
   const trackUrl = typeof window !== 'undefined' ? `${window.location.origin}/t/${token}` : '';
@@ -71,38 +69,21 @@ export default function TrackOrderPage() {
     }
   }, [orderId]);
 
+  const { subscribeToOrder } = useOrderRealtime();
+
   useEffect(() => {
     fetchOrder();
+  }, [fetchOrder]);
 
-    const channel = supabase
-      .channel(`order-${orderId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `id=eq.${orderId}` }, (payload: any) => {
-        if (payload.new) {
-          setOrder((prev: any) => prev ? { ...prev, ...payload.new } : prev);
-          realtimeRef.current = true;
-        }
-      })
-      .subscribe((status: string) => {
-        if (status === 'SUBSCRIBED') realtimeRef.current = true;
-      });
-
-    // Polling fallback — runs every 3s regardless, updates only if realtime lags
-    pollRef.current = setInterval(async () => {
-      try {
-        const { data } = await supabase
-          .from('orders')
-          .select('*')
-          .eq('id', orderId)
-          .maybeSingle();
-        if (data) setOrder((prev: any) => prev ? { ...prev, ...data } : prev);
-      } catch {}
-    }, 3000);
-
-    return () => {
-      supabase.removeChannel(channel);
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, [orderId, fetchOrder]);
+  // Realtime: update order state immediately on changes (no polling needed)
+  useEffect(() => {
+    const unsub = subscribeToOrder(orderId, (payload) => {
+      if (payload.new) {
+        setOrder((prev: any) => prev ? { ...prev, ...payload.new } : prev);
+      }
+    });
+    return unsub;
+  }, [orderId, subscribeToOrder]);
 
   if (loading) return (
     <div className="container" style={{ paddingTop: '120px', paddingBottom: '80px', display: 'flex', justifyContent: 'center' }}>

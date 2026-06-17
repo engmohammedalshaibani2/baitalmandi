@@ -1,10 +1,12 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { getReviews, createReview, toggleReviewFeatured, deleteReview } from '@/repositories/reviewRepository';
 import { Check, X, Trash2, Star } from 'lucide-react';
+import { useOrderRealtime } from '@/realtime/OrderRealtimeProvider';
 
 export default function AdminReviewsPage() {
+  const { subscribeToTable } = useOrderRealtime();
   const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'pending' | 'approved'>('pending');
@@ -17,34 +19,37 @@ export default function AdminReviewsPage() {
 
   useEffect(() => { fetchReviews(); }, []);
 
+  useEffect(() => {
+    const unsub = subscribeToTable('reviews', () => { fetchReviews(); });
+    return unsub;
+  }, [subscribeToTable]);
+
   async function fetchReviews() {
-    const { data } = await supabase.from('reviews').select('*').order('created_at', { ascending: false });
+    const data = await getReviews();
     if (data) setReviews(data);
     setLoading(false);
   }
 
   const handleApprove = async (id: string) => {
-    await supabase.from('reviews').update({ is_featured: true }).eq('id', id);
+    await toggleReviewFeatured(id);
     setReviews(prev => prev.map(r => r.id === id ? { ...r, is_featured: true } : r));
   };
 
   const handleDelete = async (id: string) => {
     if (confirm('حذف هذا التقييم؟')) {
-      await supabase.from('reviews').delete().eq('id', id);
+      await deleteReview(id);
       setReviews(prev => prev.filter(r => r.id !== id));
     }
   };
 
   const handleAddReview = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { error } = await supabase.from('reviews').insert([{ reviewer_name: name.trim(), rating, comment_ar: comment.trim(), source, is_featured: true }]);
-    if (!error) {
-      setName('');
-      setRating(5);
-      setComment('');
-      setSource('Website');
-      await fetchReviews();
-    }
+    await createReview({ reviewer_name: name.trim(), rating, comment_ar: comment.trim(), source, is_featured: true });
+    setName('');
+    setRating(5);
+    setComment('');
+    setSource('Website');
+    await fetchReviews();
   };
 
   const filteredReviews = reviews.filter(r => {

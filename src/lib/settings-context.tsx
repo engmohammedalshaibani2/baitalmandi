@@ -1,7 +1,8 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode, useMemo } from 'react';
-import { supabase } from '@/lib/supabase';
+import { getBrowserSettings, clearSettingsCache } from '@/cache/settingsCache';
+import { useOrderRealtime } from '@/realtime/OrderRealtimeProvider';
 
 interface SettingsContextValue {
   settings: Record<string, string>;
@@ -22,20 +23,15 @@ const SettingsContext = createContext<SettingsContextValue>({
 });
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
+  const { subscribeToTable } = useOrderRealtime();
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await supabase.from('site_settings').select('*');
-      if (data && data.length > 0) {
-        const map: Record<string, string> = {};
-        data.forEach((item: any) => {
-          map[item.setting_key] = typeof item.value === 'string' ? item.value : JSON.stringify(item.value);
-        });
-        setSettings(map);
-      }
+      const data = await getBrowserSettings(true);
+      setSettings(data);
     } catch {
     } finally {
       setLoading(false);
@@ -43,8 +39,16 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    getBrowserSettings().then(setSettings).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    const unsub = subscribeToTable('site_settings', () => {
+      clearSettingsCache();
+      getBrowserSettings(true).then(setSettings).catch(() => {});
+    });
+    return unsub;
+  }, [subscribeToTable]);
 
   const currency = useMemo(() => settings['currency'] || FALLBACK_CURRENCY, [settings]);
 

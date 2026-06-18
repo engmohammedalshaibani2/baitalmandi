@@ -81,6 +81,13 @@ CREATE POLICY "Public can manage own cart sessions" ON cart_sessions USING (true
 CREATE POLICY "Public can manage own cart items" ON cart_items USING (true);
 
 -- ========================================================
+-- 9. order_sequences (CRITICAL FIX: was enabled with 0 policies)
+-- ========================================================
+CREATE POLICY "Anyone can read order_sequences" ON order_sequences FOR SELECT USING (true);
+CREATE POLICY "Anyone can insert order_sequences" ON order_sequences FOR INSERT WITH CHECK (true);
+CREATE POLICY "Anyone can update order_sequences" ON order_sequences FOR UPDATE USING (true) WITH CHECK (true);
+
+-- ========================================================
 -- 10. orders
 -- ========================================================
 CREATE POLICY "Customers can view their own orders" ON orders FOR SELECT USING (auth.uid() = customer_id);

@@ -6,6 +6,32 @@ import { haversineDistance, MAX_DELIVERY_RADIUS_KM } from '@/lib/location-valida
 import { calculateRoute, estimateRoadDistance, estimateDuration } from '@/lib/delivery-routing';
 import { calculateDeliveryFee, parseDeliverySettings } from '@/lib/delivery-pricing';
 import { validateYemeniPhone, normalizeYemeniPhone } from '@/lib/validation';
+import { db } from '@/db';
+import {
+  orders, orderItems, orderStatusHistory,
+  orderOffers, orderOfferItems, auditLogs,
+} from '@/db/schema';
+import { eq, inArray } from 'drizzle-orm';
+import { headers } from 'next/headers';
+
+// ==========================================
+// Rate Limiter — in-memory sliding window
+// ==========================================
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+
+function checkRateLimit(identifier: string): boolean {
+  const now = Date.now();
+  const windowMs = 60_000;
+  const maxRequests = 5;
+  const record = rateLimitMap.get(identifier);
+  if (!record || now > record.resetTime) {
+    rateLimitMap.set(identifier, { count: 1, resetTime: now + windowMs });
+    return true;
+  }
+  if (record.count >= maxRequests) return false;
+  record.count++;
+  return true;
+}
 
 async function generateOrderNumber(): Promise<string> {
   const supabase = await createClient();
@@ -22,10 +48,7 @@ async function generateOrderNumber(): Promise<string> {
           { onConflict: 'sequence_date', ignoreDuplicates: true }
         );
 
-      if (upsertError) {
-        console.error(`[ORDER_NUMBER] Upsert failed (attempt ${attempt}):`, upsertError);
-        continue;
-      }
+      if (upsertError) { continue; }
 
       const { data: seq, error: readError } = await supabase
         .from('order_sequences')
@@ -33,10 +56,7 @@ async function generateOrderNumber(): Promise<string> {
         .eq('sequence_date', sequenceDate)
         .maybeSingle();
 
-      if (readError || seq === null) {
-        console.error(`[ORDER_NUMBER] Read failed (attempt ${attempt}):`, readError);
-        continue;
-      }
+      if (readError || seq === null) { continue; }
 
       const nextNum = (seq.last_number || 0) + 1;
 
@@ -47,30 +67,24 @@ async function generateOrderNumber(): Promise<string> {
         .eq('last_number', seq.last_number)
         .select();
 
-      if (updateError) {
-        console.error(`[ORDER_NUMBER] Update error (attempt ${attempt}):`, updateError);
-        continue;
-      }
-
-      if (!updated || updated.length === 0) {
-        continue;
-      }
+      if (updateError) { continue; }
+      if (!updated || updated.length === 0) { continue; }
 
       const orderNumber = `BAM-${dateStr}-${String(nextNum).padStart(4, '0')}`;
       return orderNumber;
     } catch (err) {
-      console.error(`[ORDER_NUMBER] Unexpected error (attempt ${attempt}):`, err);
+      continue;
     }
   }
 
   const fallback = Date.now().toString(36).toUpperCase().slice(-4) +
                    Math.random().toString(36).substring(2, 6).toUpperCase();
-  const fallbackNumber = `BAM-${dateStr}-${fallback}`;
-  console.warn(`[ORDER_NUMBER] Using UUID fallback: ${fallbackNumber}`);
-  return fallbackNumber;
+  return `BAM-${dateStr}-${fallback}`;
 }
 
 export interface OrderItemInput {
+  item_id?: string | null;
+  price_id?: string | null;
   category_name: string;
   item_name: string;
   size_label: string;
@@ -91,20 +105,11 @@ export interface CreateOrderInput {
   delivery_address: string;
   notes?: string;
   items: OrderItemInput[];
-  /** Multiple offers/bundles support — each offer is a separate entity */
   offers?: OfferInput[];
-  subtotal: number;
-  /** Client-provided delivery_fee — NEVER TRUSTED, recalculated server-side */
-  delivery_fee?: number;
-  tax_amount?: number;
-  /** Client-provided total — NEVER TRUSTED, recalculated server-side */
-  total_amount?: number;
   order_method: 'whatsapp' | 'website';
   payment_method?: 'cash' | 'transfer' | 'wallet';
-  /** Delivery location (from map/GPS) — validated server-side */
   delivery_lat?: number;
   delivery_lng?: number;
-  /** Idempotency key for duplicate prevention (PWA sync, double-click) */
   idempotency_key?: string;
 }
 
@@ -186,6 +191,46 @@ export async function createOrder(input: CreateOrderInput) {
   }
   if (!input.delivery_address?.trim() || input.delivery_address.trim().length < 10) {
     throw new Error('عنوان التوصيل مطلوب (10 أحرف على الأقل)');
+  }
+
+  const normalizedPhone = normalizeYemeniPhone(input.customer_phone);
+  const phone = normalizedPhone || input.customer_phone.trim();
+
+  // ==========================================
+  // IDEMPOTENCY CHECK — BEFORE any DB writes
+  // ==========================================
+  if (input.idempotency_key) {
+    const existing = await db.select().from(orders)
+      .where(eq(orders.idempotencyKey, input.idempotency_key))
+      .limit(1);
+    if (existing.length > 0) {
+      const o = existing[0];
+      return { ...o, order_number: o.orderNumber, tracking_token: o.trackingToken };
+    }
+  }
+
+  // ==========================================
+  // RATE LIMITING — 5 requests/minute per IP+phone
+  // ==========================================
+  const headersList = await headers();
+  const clientIp = headersList.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || headersList.get('x-real-ip')
+    || 'unknown';
+  const limitKey = `${clientIp}:${input.customer_phone}`;
+  if (!checkRateLimit(limitKey)) {
+    throw new Error('طلبات كثيرة جداً. يرجى الانتظار دقيقة ثم المحاولة مرة أخرى.');
+  }
+
+  // ==========================================
+  // AUTH CHECK — log authenticated user if present; guest orders still allowed
+  // ==========================================
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) {
+    console.log('[CREATE_ORDER_AUTH]', JSON.stringify({
+      userId: user.id,
+      email: user.email,
+      customerPhone: input.customer_phone,
+    }));
   }
 
   let deliveryFeeNumeric = 0;
@@ -280,7 +325,6 @@ export async function createOrder(input: CreateOrderInput) {
 
   const orderNumber = await generateOrderNumber();
 
-  const phone = input.customer_phone.trim();
   const { data: existingToken } = await supabase
     .from('customer_tokens')
     .select('tracking_token')
@@ -297,12 +341,60 @@ export async function createOrder(input: CreateOrderInput) {
     }
   }
 
-  let validatedSubtotal = 0;
-  let validatedTotalAmount = 0;
+  // ==========================================
+  // SERVER-SIDE PRICE VALIDATION
+  // Look up current prices from DB for regular items
+  // ==========================================
+  const serverValidatedItems: Map<number, number> = new Map();
+  const regularItemPriceIds = input.items
+    .filter(item => item.category_name !== 'عروض')
+    .map((_, idx) => idx);
 
-  // === MULTI-OFFER PROCESSING ===
-  // Process ALL offers in the order, not just the first one.
-  // Each offer is independently validated and priced.
+  if (regularItemPriceIds.length > 0) {
+    const priceIdToItemIdx = new Map<string, number>();
+    const priceIds: string[] = [];
+    for (const [idx, item] of input.items.entries()) {
+      if (item.category_name !== 'عروض') {
+        if (!item.price_id) {
+          throw new Error(`بيانات السعر غير مكتملة للصنف "${item.item_name}"`);
+        }
+        priceIdToItemIdx.set(item.price_id, idx);
+        priceIds.push(item.price_id);
+      }
+    }
+
+    if (priceIds.length > 0) {
+      const { data: dbPrices } = await supabase
+        .from('item_prices')
+        .select('id, original_price, sale_price, item_id')
+        .in('id', priceIds);
+
+      const priceMap = new Map((dbPrices || []).map((p: any) => [p.id, p]));
+
+      for (const priceId of priceIds) {
+        const dbPrice = priceMap.get(priceId);
+        if (!dbPrice) {
+          throw new Error('السعر المحدد غير صالح، يرجى إعادة تحميل القائمة');
+        }
+        const idx = priceIdToItemIdx.get(priceId)!;
+        const item = input.items[idx];
+        const serverPrice = Number(dbPrice.sale_price ?? dbPrice.original_price);
+        if (Math.abs(serverPrice - item.unit_price) > 0.01) {
+          console.warn('[PRICE_MISMATCH]', JSON.stringify({
+            itemName: item.item_name,
+            clientPrice: item.unit_price,
+            serverPrice,
+            corrected: true,
+          }));
+        }
+        serverValidatedItems.set(idx, serverPrice);
+      }
+    }
+  }
+
+  // ==========================================
+  // OFFER PROCESSING — fully validated server-side
+  // ==========================================
   const processedOffers: Array<{
     offerInput: OfferInput;
     offer: any;
@@ -357,43 +449,35 @@ export async function createOrder(input: CreateOrderInput) {
 
       processedOffers.push({ offerInput, offer, pricing });
     }
-
-    const regularItemsTotal = input.items
-      .filter(item => item.category_name !== 'عروض')
-      .reduce((sum, item) => sum + item.total_price, 0);
-
-    const totalOfferAmount = processedOffers.reduce(
-      (acc, po) => acc + po.pricing.finalPrice * po.offerInput.quantity,
-      0,
-    );
-
-    validatedSubtotal = regularItemsTotal + totalOfferAmount;
-    validatedTotalAmount = validatedSubtotal + deliveryFeeNumeric;
-
-    console.log('[MULTI_OFFER_CALC]', JSON.stringify({
-      regularItemsTotal,
-      offerCount: processedOffers.length,
-      offers: processedOffers.map(po => ({
-        offerId: po.offerInput.offer_id,
-        name: po.offer.title_ar,
-        perBundlePrice: po.pricing.finalPrice,
-        quantity: po.offerInput.quantity,
-        offerTotal: po.pricing.finalPrice * po.offerInput.quantity,
-        originalPrice: po.pricing.originalPrice,
-        discountAmount: po.pricing.discountAmount,
-      })),
-      totalOfferAmount,
-      validatedSubtotal,
-      deliveryFee: deliveryFeeNumeric,
-      validatedTotalAmount,
-    }));
-  } else {
-    validatedSubtotal = input.subtotal;
-    validatedTotalAmount = validatedSubtotal + deliveryFeeNumeric;
   }
 
+  // ==========================================
+  // SUBTOTAL CALCULATION — entirely server-side
+  // ==========================================
+  const regularItemsTotal = input.items.reduce((sum, item, idx) => {
+    if (item.category_name === 'عروض') return sum;
+    const serverPrice = serverValidatedItems.get(idx);
+    return sum + (serverPrice ?? item.unit_price) * item.quantity;
+  }, 0);
+
+  const totalOfferAmount = processedOffers.reduce(
+    (acc, po) => acc + po.pricing.finalPrice * po.offerInput.quantity,
+    0,
+  );
+
+  const validatedSubtotal = regularItemsTotal + totalOfferAmount;
+  const validatedTotalAmount = validatedSubtotal + deliveryFeeNumeric;
+
+  console.log('[SERVER_PRICE_CALC]', JSON.stringify({
+    regularItemsTotal,
+    totalOfferAmount,
+    validatedSubtotal,
+    deliveryFee: deliveryFeeNumeric,
+    validatedTotalAmount,
+  }));
+
   const finalPayableAmount = validatedTotalAmount;
-  const discountAmount = Math.max(0, input.subtotal - validatedSubtotal);
+  const discountAmount = 0;
 
   console.log('[MIN_ORDER_CALCULATION]', JSON.stringify({
     productsTotal: validatedSubtotal,
@@ -425,198 +509,118 @@ export async function createOrder(input: CreateOrderInput) {
   cleanNotes = cleanNotes.replace(/\[BUNDLE\].*?\[\/BUNDLE\]/g, '').replace(/\n{2,}/g, '\n').trim();
   const notesValue = cleanNotes || null;
 
-  const insertPayload: Record<string, unknown> = {
-    order_number: orderNumber,
-    tracking_token: trackingToken,
-    offer_id: null, // Multi-offer support: offers stored in order_offers table
-    customer_name: input.customer_name.trim(),
-    customer_phone: phone,
-    delivery_address: input.delivery_address?.trim() || null,
-    notes: notesValue,
-    subtotal: String(validatedSubtotal),
-    delivery_fee: String(deliveryFeeNumeric),
-    tax_amount: String(input.tax_amount || 0),
-    total_amount: String(validatedTotalAmount),
-    order_method: input.order_method,
-    payment_method: input.payment_method || 'cash',
-    status: 'pending',
-    delivery_latitude: deliveryLat ? String(deliveryLat) : null,
-    delivery_longitude: deliveryLng ? String(deliveryLng) : null,
-    delivery_zone: null,
-    delivery_distance_km: deliveryDistanceKm ? String(deliveryDistanceKm) : null,
-    delivery_duration_minutes: deliveryDurationMin,
-    location_verified: deliveryLat !== null,
-    base_delivery_fee_amount: String(baseFeeAmount),
-    extra_distance_km: String(extraDistanceKm),
-    extra_fee_amount: String(Math.max(0, extraFeeAmount)),
-    weather_fee_amount: String(weatherFeeApplied),
-    peak_fee_amount: String(peakFeeApplied),
-    peak_percentage_used: String(peakPercentageApplied),
-  };
-
-  if (input.idempotency_key) {
-    insertPayload.idempotency_key = input.idempotency_key;
-  }
-
-  const { data: order, error: orderError } = await supabase
-    .from('orders')
-    .insert(insertPayload)
-    .select()
-    .single();
-
-  if (orderError) {
-    if (input.idempotency_key && orderError.message?.includes('duplicate key') || orderError.message?.includes('unique constraint')) {
-      const { data: existingOrder } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('idempotency_key', input.idempotency_key)
-        .maybeSingle();
-      if (existingOrder) {
-        console.log(`[CREATE_ORDER] Idempotency hit: returning existing order ${existingOrder.order_number}`);
-        return { ...existingOrder, order_number: existingOrder.order_number, tracking_token: trackingToken };
-      }
-    }
-    console.error('[CREATE_ORDER] Order insert failed:', {
+  // ==========================================
+  // TRANSACTION — All writes atomically
+  // ==========================================
+  const order = await db.transaction(async (tx) => {
+    const [order] = await tx.insert(orders).values({
       orderNumber,
-      customer: input.customer_name,
-      phone: input.customer_phone,
-      error: orderError,
+      trackingToken,
+      offerId: null,
+      customerName: input.customer_name.trim(),
+      customerPhone: phone,
+      deliveryAddress: input.delivery_address?.trim() || null,
+      notes: notesValue,
+      subtotal: String(validatedSubtotal),
+      deliveryFee: String(deliveryFeeNumeric),
+      taxAmount: '0',
+      totalAmount: String(validatedTotalAmount),
+      orderMethod: input.order_method,
+      paymentMethod: input.payment_method || 'cash',
+      status: 'pending',
+      deliveryLatitude: deliveryLat ? String(deliveryLat) : null,
+      deliveryLongitude: deliveryLng ? String(deliveryLng) : null,
+      deliveryZone: null,
+      deliveryDistanceKm: deliveryDistanceKm ? String(deliveryDistanceKm) : null,
+      deliveryDurationMinutes: deliveryDurationMin,
+      locationVerified: deliveryLat !== null,
+      baseDeliveryFeeAmount: String(baseFeeAmount),
+      extraDistanceKm: String(extraDistanceKm),
+      extraFeeAmount: String(Math.max(0, extraFeeAmount)),
+      weatherFeeAmount: String(weatherFeeApplied),
+      peakFeeAmount: String(peakFeeApplied),
+      peakPercentageUsed: String(peakPercentageApplied),
+      idempotencyKey: input.idempotency_key || null,
+    }).returning();
+
+    const orderItemsData = input.items.map((item, idx) => {
+      const serverPrice = serverValidatedItems.get(idx);
+      const unitPrice = serverPrice ?? item.unit_price;
+      return {
+        orderId: order.id,
+        categoryName: item.category_name,
+        itemName: item.item_name,
+        sizeLabel: item.size_label,
+        quantity: item.quantity,
+        unitPrice: String(unitPrice),
+        totalPrice: String(unitPrice * item.quantity),
+      };
     });
-    throw new Error(`فشل إنشاء الطلب: ${orderError.message}`);
-  }
+    await tx.insert(orderItems).values(orderItemsData);
 
-  const orderItemsData = input.items.map(item => ({
-    order_id: order.id,
-    category_name: item.category_name,
-    item_name: item.item_name,
-    size_label: item.size_label,
-    quantity: item.quantity,
-    unit_price: String(item.unit_price),
-    total_price: String(item.total_price),
-  }));
-
-  const { error: itemsError } = await supabase
-    .from('order_items')
-    .insert(orderItemsData);
-
-  if (itemsError) {
-    console.error('[CREATE_ORDER] Items insert failed, rolling back order:', {
+    await tx.insert(orderStatusHistory).values({
       orderId: order.id,
-      orderNumber,
-      itemsCount: input.items.length,
-      error: itemsError,
+      oldStatus: null,
+      newStatus: 'pending',
     });
 
-    await supabase.from('orders').update({
-      status: 'cancelled',
-      is_deleted: true,
-      deleted_at: new Date().toISOString(),
-      notes: `[SYSTEM] Rolled back on items insert failure`,
-    }).eq('id', order.id);
-    throw new Error(`فشل إضافة أصناف الطلب: ${itemsError.message}`);
-  }
-
-  const { error: historyError } = await supabase
-    .from('order_status_history')
-    .insert({
-      order_id: order.id,
-      old_status: null,
-      new_status: 'pending',
-    });
-
-  if (historyError) {
-    console.error('[CREATE_ORDER] Status history insert failed:', {
-      orderId: order.id,
-      orderNumber,
-      error: historyError,
-    });
-  }
-
-  // === MULTI-OFFER DB INSERT ===
-  // Insert one order_offers row per offer with its bundle_items.
-  // The orders.offer_id FK is set to null (we use order_offers for multi-offer).
-  for (const po of processedOffers) {
-    const { data: orderOffer, error: orderOfferError } = await supabase
-      .from('order_offers')
-      .insert({
-        order_id: order.id,
-        offer_id: po.offerInput.offer_id,
-        offer_name: po.offer.title_ar || 'عرض',
-        offer_type: po.offer.offer_type || 'percentage_discount',
-        original_price: String(po.pricing.originalPrice),
-        discount_amount: String(po.pricing.discountAmount),
-        discount_percent: String(po.pricing.discountPercent),
-        final_price: String(po.pricing.finalPrice),
-        quantity: po.offerInput.quantity,
-      })
-      .select()
-      .single();
-
-    if (orderOfferError) {
-      console.error('[MULTI_OFFER_DB] Failed to insert order_offer:', {
+    for (const po of processedOffers) {
+      const [orderOffer] = await tx.insert(orderOffers).values({
         orderId: order.id,
         offerId: po.offerInput.offer_id,
-        offerName: po.offer.title_ar,
-        error: orderOfferError,
-      });
+        offerName: po.offer.title_ar || 'عرض',
+        offerType: po.offer.offer_type || 'percentage_discount',
+        originalPrice: String(po.pricing.originalPrice),
+        discountAmount: String(po.pricing.discountAmount),
+        discountPercent: String(po.pricing.discountPercent),
+        finalPrice: String(po.pricing.finalPrice),
+        quantity: po.offerInput.quantity,
+      }).returning();
+
+      if (po.offerInput.bundle_items && po.offerInput.bundle_items.length > 0) {
+        await tx.insert(orderOfferItems).values(
+          po.offerInput.bundle_items.map(item => ({
+            orderOfferId: orderOffer.id,
+            itemName: item.item_name,
+            sizeLabel: item.size_label,
+            quantity: item.quantity,
+            unitPrice: String(item.unit_price),
+            totalPrice: String(item.total_price),
+          }))
+        );
+      }
     }
 
-    if (orderOffer) {
-      const bundleItemsData = (po.offerInput.bundle_items || [])
-        .map(item => ({
-          order_offer_id: orderOffer.id,
-          item_name: item.item_name,
-          size_label: item.size_label,
-          quantity: item.quantity,
-          unit_price: String(item.unit_price),
-          total_price: String(item.total_price),
-        }));
+    await tx.insert(auditLogs).values({
+      entityId: order.id,
+      entityType: 'order',
+      action: 'other',
+      details: JSON.stringify({
+        orderNumber,
+        action: 'created',
+        method: input.order_method,
+        paymentMethod: input.payment_method || 'cash',
+        itemCount: input.items.length,
+        totalAmount: validatedTotalAmount,
+          tracking_token: trackingToken,  
 
-      if (bundleItemsData.length > 0) {
-        const { error: biError } = await supabase
-          .from('order_offer_items')
-          .insert(bundleItemsData);
+      }),
+      adminId: null,
+    });
 
-        if (biError) {
-          console.error('[MULTI_OFFER_DB] Failed to insert order_offer_items:', {
-            orderOfferId: orderOffer.id,
-            offerName: po.offer.title_ar,
-            error: biError,
-          });
-        }
-      }
+    return order;
+  });
+
+  // customer_tokens is outside the transaction (independent concern)
+  if (!existingToken) {
+    const { error: tokenError } = await supabase
+      .from('customer_tokens')
+      .insert({ phone, tracking_token: trackingToken });
+    if (tokenError && !tokenError.message?.includes('duplicate') && !tokenError.message?.includes('unique')) {
+      console.error('[CREATE_ORDER] Failed to save customer token:', tokenError);
     }
   }
 
-  console.log('[ORDER_PAYLOAD]', JSON.stringify({
-    orderNumber,
-    subtotal: validatedSubtotal,
-    deliveryFee: deliveryFeeNumeric,
-    totalAmount: validatedTotalAmount,
-    itemCount: input.items.length,
-    offerCount: processedOffers.length,
-    offerIds: processedOffers.map(po => po.offerInput.offer_id),
-  }));
-  console.log('[ORDER_ITEMS_SNAPSHOT]', JSON.stringify(input.items.map(i => ({
-    name: i.item_name,
-    qty: i.quantity,
-    unitPrice: i.unit_price,
-    total: i.total_price,
-  }))));
-  console.log('[ORDER_OFFERS_SNAPSHOT]', JSON.stringify({
-    orderId: order.id,
-    offers: processedOffers.map(po => ({
-      offerId: po.offerInput.offer_id,
-      name: po.offer.title_ar,
-      originalPrice: po.pricing.originalPrice,
-      finalPrice: po.pricing.finalPrice,
-      discountAmount: po.pricing.discountAmount,
-      quantity: po.offerInput.quantity,
-      bundleItemsCount: (po.offerInput.bundle_items || []).length,
-    })),
-  }));
-
-  console.log(`[CREATE_ORDER] Success: ${orderNumber} (${input.customer_name})`);
   return { ...order, order_number: orderNumber, tracking_token: trackingToken };
 }
 
@@ -746,6 +750,22 @@ export async function updateOrderStatus(
   adminId?: string
 ) {
   const supabase = await createClient();
+
+  // ==========================================
+  // ADMIN AUTHORIZATION CHECK
+  // ==========================================
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error('يجب تسجيل الدخول كمسؤول لتعديل حالة الطلب');
+  }
+  const { data: admin } = await supabase
+    .from('admin_users')
+    .select('id, role')
+    .eq('auth_user_id', user.id)
+    .maybeSingle();
+  if (!admin) {
+    throw new Error('غير مصرح لك بتعديل حالة الطلب');
+  }
 
   const { data: order, error: fetchError } = await supabase
     .from('orders')

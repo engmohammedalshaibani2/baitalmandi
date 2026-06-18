@@ -101,21 +101,21 @@ export default function CartPage() {
     setLoading(true);
 
     try {
-      const orderItems = cart.flatMap(item => {
-        if (item.isOffer && item.bundleItems && item.bundleItems.length > 0) {
-          return [{
-            category_name: 'عروض',
-            item_name: item.name,
-            size_label: 'عادي',
-            quantity: item.quantity,
-            unit_price: item.price,
-            total_price: item.price * item.quantity,
-          }];
-        }
+      const orderItems = cart.flatMap<{
+        price_id: string | null;
+        category_name: string;
+        item_name: string;
+        size_label: string;
+        quantity: number;
+        unit_price: number;
+        total_price: number;
+      }>(item => {
+        const isOffer = item.isOffer && item.bundleItems && item.bundleItems.length > 0;
         return [{
-          category_name: item.category || 'General',
-          item_name: item.name.split(' (')[0],
-          size_label: item.size || 'عادي',
+          price_id: isOffer ? null : item.id,
+          category_name: isOffer ? 'عروض' : item.category || 'General',
+          item_name: isOffer ? item.name : item.name.split(' (')[0],
+          size_label: isOffer ? 'عادي' : item.size || 'عادي',
           quantity: item.quantity,
           unit_price: item.price,
           total_price: item.price * item.quantity,
@@ -156,10 +156,6 @@ export default function CartPage() {
         notes: notes,
         items: orderItems,
         offers: offers,
-        subtotal: cartTotal,
-        delivery_fee: deliveryFee,
-        tax_amount: 0,
-        total_amount: deliveryFee > 0 ? totalWithDelivery : cartTotal,
         order_method: 'whatsapp',
         payment_method: paymentMethod,
         idempotency_key: idempotencyKey,

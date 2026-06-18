@@ -462,7 +462,7 @@ export default function Home() {
                     ))}
                   </div>
                   <p className="text-[var(--text-secondary)] leading-relaxed mb-6 text-sm md:text-base">
-                    "{review.comment_ar}"
+                    &quot;{review.comment_ar}&quot;
                   </p>
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-3">

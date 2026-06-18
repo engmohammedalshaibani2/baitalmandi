@@ -1,5 +1,5 @@
 'use client';
-
+/* eslint-disable react/no-unescaped-entities */
 import React, { useEffect, useState } from 'react';
 import { Plus, Edit2, Trash2, Save, X, ChevronDown, ChevronUp, DollarSign, Package, Upload } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -354,7 +354,7 @@ export default function MenuPage() {
           <div className="glass-panel" style={{ padding: '60px', textAlign: 'center', color: 'var(--text-secondary)' }}>
             <Package size={48} style={{ opacity: 0.3, marginBottom: '15px', display: 'inline-block' }} />
             <p style={{ fontSize: '1.2rem', marginBottom: '10px' }}>لا توجد أطباق</p>
-            <p>اضغط على "إضافة صنف" للبدء</p>
+            <p>اضغط على &quot;إضافة صنف&quot; للبدء</p> 
           </div>
         )}
       </div>

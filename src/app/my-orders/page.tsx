@@ -466,7 +466,7 @@ export default function MyOrdersPage() {
           whatsappNumber,
           order: {
             orderNumber: order.order_number,
-            createdAt: formatOrderDate(order.created_at),
+            createdAt: formatOrderDate(typeof order.created_at === 'string' ? order.created_at : order.created_at.toISOString()),
             status: getArabicStatus(order.status),
             trackingUrl: `${trackingOrigin}/t/${order.tracking_token}`,
           },

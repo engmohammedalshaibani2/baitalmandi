@@ -6,6 +6,8 @@ import LoadingScreen from '@/components/layout/LoadingScreen';
 import { SettingsProvider } from '@/lib/settings-context';
 import { ToastProvider } from '@/components/ui/Toast';
 import { OrderRealtimeProvider } from '@/realtime/OrderRealtimeProvider';
+import PWAServiceWorkerRegister from '@/components/pwa/PWAServiceWorkerRegister';
+import PWAInstallPrompt from '@/components/pwa/PWAInstallPrompt';
 
 const BASE_URL = 'https://baitalmandi.vercel.app';
 
@@ -85,6 +87,12 @@ export const metadata: Metadata = {
     icon: '/logo.jpg',
     apple: '/logo.jpg',
     shortcut: '/logo.jpg',
+  },
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    title: 'بيت المندي',
+    statusBarStyle: 'default',
   },
   verification: {
     // Add your Google Search Console verification token here:
@@ -186,6 +194,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body suppressHydrationWarning style={{ paddingTop: '72px', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <PWAServiceWorkerRegister />
+        <PWAInstallPrompt />
         <OrderRealtimeProvider>
           <SettingsProvider>
             <ToastProvider>

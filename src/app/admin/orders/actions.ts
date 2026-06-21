@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@/utils/supabase/server'
-import { canAccessPage, type AdminRole } from '@/lib/permissions'
+import { type AdminRole } from '@/lib/permissions'
 
 export async function getCurrentAdmin() {
   const supabase = await createClient()
@@ -13,6 +13,10 @@ export async function getCurrentAdmin() {
     .select('id, full_name, role')
     .eq('auth_user_id', user.id)
     .maybeSingle()
+
+  if (data && data.role === 'order-manager') {
+    data.role = 'order_manager';
+  }
 
   return data as { id: string; full_name: string; role: AdminRole } | null
 }
@@ -29,6 +33,10 @@ async function checkAdminAccess(requiredRoles: AdminRole[]): Promise<{ supabase:
     .maybeSingle()
 
   if (!admin) throw new Error('غير مصرح بالدخول')
+
+  if (admin.role === 'order-manager') {
+    admin.role = 'order_manager';
+  }
 
   const role = admin.role as AdminRole
   if (!requiredRoles.includes(role) && role !== 'developer') {

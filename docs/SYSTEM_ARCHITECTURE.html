@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>وثيقة معمارية النظام - بيت المندي</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --gold: #c59b5f;
+    --dark-red: #3D0820;
+    --bg: #ffffff;
+    --text: #1a1a1a;
+    --text-muted: #555;
+    --border: #e0e0e0;
+    --code-bg: #f5f5f5;
+    --accent: #f0e8d8;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  @page {
+    size: A4;
+    margin: 18mm 20mm 18mm 20mm;
+  }
+
+  body {
+    font-family: 'Tajawal', 'Arial', sans-serif;
+    font-size: 13px;
+    line-height: 1.9;
+    color: var(--text);
+    background: var(--bg);
+    direction: rtl;
+  }
+
+  /* ── COVER PAGE ─────────────────────────────── */
+  .cover {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    min-height: 100vh;
+    page-break-after: always;
+    padding: 60px 40px;
+    background: linear-gradient(160deg, var(--dark-red) 0%, #6b1033 60%, #3D0820 100%);
+    color: white;
+  }
+  .cover-logo {
+    font-size: 72px;
+    margin-bottom: 24px;
+  }
+  .cover-restaurant {
+    font-size: 36px;
+    font-weight: 900;
+    color: var(--gold);
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+  .cover-subtitle {
+    font-size: 18px;
+    font-weight: 300;
+    color: rgba(255,255,255,0.8);
+    margin-bottom: 48px;
+  }
+  .cover-divider {
+    width: 120px;
+    height: 3px;
+    background: var(--gold);
+    margin: 0 auto 40px;
+    border-radius: 2px;
+  }
+  .cover-title {
+    font-size: 26px;
+    font-weight: 800;
+    line-height: 1.5;
+    margin-bottom: 16px;
+  }
+  .cover-en-title {
+    font-size: 15px;
+    font-weight: 400;
+    color: rgba(255,255,255,0.65);
+    margin-bottom: 60px;
+  }
+  .cover-meta {
+    font-size: 12px;
+    color: rgba(255,255,255,0.5);
+    line-height: 2;
+    border-top: 1px solid rgba(255,255,255,0.15);
+    padding-top: 24px;
+    width: 100%;
+    max-width: 500px;
+  }
+  .cover-meta strong { color: var(--gold); }
+
+  /* ── CONTENT WRAPPER ─────────────────────────── */
+  .content {
+    max-width: 850px;
+    margin: 0 auto;
+    padding: 32px 24px;
+  }
+
+  /* ── TABLE OF CONTENTS ─────────────────────────── */
+  .toc {
+    page-break-after: always;
+    padding: 40px 0;
+  }
+  .toc h2 {
+    font-size: 22px;
+    color: var(--dark-red);
+    border-bottom: 3px solid var(--gold);
+    padding-bottom: 10px;
+    margin-bottom: 24px;
+  }
+  .toc ol { padding-right: 20px; }
+  .toc li {
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+  .toc li strong { color: var(--text); }
+
+  /* ── HEADINGS ─────────────────────────── */
+  h1 {
+    font-size: 26px;
+    font-weight: 900;
+    color: var(--dark-red);
+    border-bottom: 4px solid var(--gold);
+    padding-bottom: 12px;
+    margin: 44px 0 20px;
+    page-break-after: avoid;
+  }
+  h2 {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--dark-red);
+    border-right: 5px solid var(--gold);
+    padding-right: 14px;
+    margin: 36px 0 16px;
+    page-break-after: avoid;
+  }
+  h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: #2a2a2a;
+    margin: 28px 0 12px;
+    page-break-after: avoid;
+  }
+  h4 {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--gold);
+    margin: 20px 0 8px;
+    page-break-after: avoid;
+  }
+
+  /* ── PARAGRAPHS ─────────────────────────── */
+  p {
+    margin: 10px 0;
+    color: var(--text-muted);
+  }
+
+  /* ── LISTS ─────────────────────────── */
+  ul, ol {
+    padding-right: 24px;
+    margin: 10px 0 14px;
+  }
+  li {
+    margin-bottom: 6px;
+    color: var(--text-muted);
+  }
+  li strong { color: var(--text); }
+
+  /* ── CODE ─────────────────────────── */
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--dark-red);
+    direction: ltr;
+    display: inline-block;
+  }
+  pre {
+    background: #1a1a2e;
+    color: #e8e8e8;
+    padding: 16px 20px;
+    border-radius: 10px;
+    overflow-x: auto;
+    margin: 16px 0;
+    direction: ltr;
+    text-align: left;
+    font-size: 11px;
+    line-height: 1.7;
+    page-break-inside: avoid;
+    border-right: 4px solid var(--gold);
+  }
+  pre code {
+    background: transparent;
+    color: #e8e8e8;
+    padding: 0;
+    font-size: 11px;
+  }
+
+  /* ── TABLES ─────────────────────────── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 12px;
+    page-break-inside: avoid;
+  }
+  th {
+    background: var(--dark-red);
+    color: var(--gold);
+    padding: 10px 14px;
+    text-align: right;
+    font-weight: 700;
+  }
+  td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-muted);
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #fafafa; }
+  tr:hover td { background: var(--accent); }
+
+  /* ── BLOCKQUOTE ─────────────────────────── */
+  blockquote {
+    border-right: 4px solid var(--gold);
+    margin: 16px 0;
+    padding: 12px 20px;
+    background: var(--accent);
+    color: var(--text-muted);
+    border-radius: 0 8px 8px 0;
+    font-size: 12px;
+    page-break-inside: avoid;
+  }
+
+  /* ── ALERTS ─────────────────────────── */
+  .alert {
+    margin: 16px 0;
+    padding: 14px 18px;
+    border-radius: 8px;
+    font-size: 12px;
+    page-break-inside: avoid;
+    border-right: 4px solid;
+  }
+  .alert strong { display: block; margin-bottom: 4px; }
+  .alert-note { background: #e8f4fd; border-color: #3b82f6; color: #1e3a5f; }
+  .alert-tip { background: #e8fdf0; border-color: #10b981; color: #1a3d2e; }
+  .alert-important { background: #fff8e8; border-color: #f59e0b; color: #3d2e00; }
+  .alert-warning { background: #fff3e8; border-color: #f97316; color: #3d1e00; }
+  .alert-caution { background: #fde8e8; border-color: #ef4444; color: #3d0000; }
+
+  /* ── MERMAID DIAGRAMS ─────────────────────────── */
+  .mermaid {
+    background: #f8f8ff;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    margin: 20px 0;
+    text-align: center;
+    page-break-inside: avoid;
+    overflow: auto;
+  }
+
+  /* ── HR ─────────────────────────── */
+  hr {
+    border: none;
+    border-top: 2px solid var(--gold);
+    margin: 32px 0;
+    opacity: 0.4;
+  }
+
+  /* ── PAGE BREAK ─────────────────────────── */
+  .page-break { page-break-before: always; }
+
+  /* ── PRINT ─────────────────────────── */
+  @media print {
+    body { background: white; }
+    .cover { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    .alert { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    th { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  }
+
+  /* ── FOOTER ─────────────────────────── */
+  .doc-footer {
+    margin-top: 60px;
+    padding: 24px;
+    text-align: center;
+    border-top: 2px solid var(--gold);
+    color: var(--text-muted);
+    font-size: 11px;
+  }
+  .doc-footer strong { color: var(--dark-red); }
+</style>
+</head>
+<body>
+
+<!-- COVER PAGE -->
+<div class="cover">
+  <div class="cover-logo"></div>
+  <div class="cover-restaurant">بيت المندي</div>
+  <div class="cover-subtitle">Bait Al Mandi Restaurant Platform</div>
+  <div class="cover-divider"></div>
+  <div class="cover-title">وثيقة المواصفات الفنية ومعمارية النظام</div>
+  <div class="cover-en-title">System Architecture & Technical Specification Document</div>
+  <div class="cover-meta">
+    <div>المطوّر: <strong>شركة إسناد التقنية (Esnaad Tech)</strong></div>
+    <div>الإطار التقني: <strong>Next.js 14 · Supabase · PostgreSQL · Drizzle ORM</strong></div>
+    <div>تاريخ الإصدار: <strong>٢٠ يونيو ٢٠٢٦</strong></div>
+    <div>الإصدار: <strong>v1.0 — وثيقة سرية للاستخدام الداخلي</strong></div>
+  </div>
+</div>
+
+<!-- TABLE OF CONTENTS -->
+<div class="content">
+<div class="toc">
+<h2>📋 فهرس المحتويات</h2>
+<ol>
+  <li><strong>Executive Overview</strong> — نظرة عامة تنفيذية</li>
+  <li><strong>System Architecture</strong> — المعمارية العامة للنظام</li>
+  <li><strong>Architecture Diagram</strong> — مخطط Mermaid التفاعلي</li>
+  <li><strong>Project Structure</strong> — هيكل المشروع والمجلدات</li>
+  <li><strong>Backend Architecture</strong> — بنية الخلفية وطبقات الأعمال</li>
+  <li><strong>Database Architecture</strong> — قاعدة البيانات وسياسات الأمان</li>
+  <li><strong>Frontend Architecture</strong> — بنية الواجهة الأمامية</li>
+  <li><strong>Core System Workflows</strong> — تدفقات العمليات الأساسية</li>
+  <li><strong>Integrations & External Services</strong> — التكاملات والخدمات الخارجية</li>
+  <li><strong>Scalability & Growth Plan</strong> — خطة التوسع والنمو</li>
+  <li><strong>Code & Architecture Improvements</strong> — التحسينات الفنية المقترحة</li>
+  <li><strong>Final CTO Assessment</strong> — التقييم الفني النهائي</li>
+  <li><strong>PDF-Ready Format</strong> — جاهزية الطباعة والتحويل</li>
+</ol>
+</div>
+
+<!-- DOCUMENT BODY -->
+<h1 id="وثيقة-المواصفات-الفنية-ومعمارية-النظام-system-architecture-technical-specification-">وثيقة المواصفات الفنية ومعمارية النظام (System Architecture &amp; Technical Specification)</h1>
+<h2 id="مشروع-منصة-بيت-المندي-bait-al-mandi-web-application-">مشروع منصة "بيت المندي" (Bait Al Mandi Web Application)</h2>
+<h3 id="مطور-من-قبل-شركة-إسناد-التقنية-esnaad-tech-">مطور من قبل: شركة إسناد التقنية (Esnaad Tech)</h3>
+<hr>
+<h2 id="-1-executive-overview-نظرة-عامة-تنفيذية-">🧭 1. Executive Overview (نظرة عامة تنفيذية)</h2>
+<h3 id="وصف-عالي-المستوى-للنظام-high-level-system-description-">وصف عالي المستوى للنظام (High-Level System Description)</h3>
+<p>نظام <strong>بيت المندي</strong> هو نظام برمجيات متكامل (Enterprise Web Platform) مخصص لإدارة وتسهيل عمليات الطلب، التوصيل، الفوترة، وإعداد التقارير لمطعم "بيت المندي". يجمع النظام بين واجهة عامة سلسة وتفاعلية للزبائن تتيح لهم تصفح قائمة الأطباق والعروض والباقات وإرسال الطلبات، وبين لوحة تحكم إدارية متكاملة ومؤمنة بالكامل تعتمد على الصلاحيات والأدوار (Role-Based Access Control) لإدارة المبيعات والتوصيل وتتبع العمليات لحظياً.</p>
+<h3 id="الهدف-التجاري-business-objective-">الهدف التجاري (Business Objective)</h3>
+<ol>
+<li><strong>تحسين تجربة طلب الطعام</strong>: تسهيل وصول العملاء لقائمة الطعام وحساب أسعار الباقات والعروض بدقة لزيادة معدل التحويل والمبيعات.</li>
+<li><strong>أتمتة وحوكمة التوصيل</strong>: توفير آلية آلية دقيقة لحساب رسوم التوصيل بناءً على مسارات حركية وجغرافية واقعية لتجنب خسائر التقديرات العشوائية.</li>
+<li><strong>التحكم التشغيلي الكامل</strong>: تمكين الطاقم الإداري والتشغيلي من معالجة الطلبات وإصدار الفواتير وتحليل الأداء التجاري بشكل فوري.</li>
+</ol>
+<h3 id="المشكلة-التي-يحلها-النظام-the-problem-statement-">المشكلة التي يحلها النظام (The Problem Statement)</h3>
+<ol>
+<li><strong>أزمة العنونة والخرائط في اليمن (صنعاء)</strong>: تعاني خدمات التوصيل من صعوبة تحديد العناوين بدقة بسبب غياب العنونة المنظمة، وهو ما يحله النظام عبر دمج محرك جيومكاني محلي (Sana'a Boundaries Engine) مع خرائط مفتوحة المصدر لفك تشفير النطاقات الجغرافية وتقدير مسافة القيادة الفعلية.</li>
+<li><strong>التلاعب بالأسعار ورسوم التوصيل (Client-Side Tampering)</strong>: كانت الأنظمة التقليدية تعتمد على حساب القيم المالية في المتصفح مما يتيح التلاعب بها؛ ويحل هذا النظام المشكلة عبر <strong>محرك تسعير خادمي صارم</strong> يعيد حساب السلة ورسوم التوصيل والخصومات بشكل كامل قبل إدراج الطلب.</li>
+<li><strong>فشل العمليات والبيانات اليتيمة (Orphan Records)</strong>: تؤدي انقطاعات الاتصال أو فشل إدراج بعض عناصر السلة إلى وجود فواتير فارغة؛ ويحل هذا النظام المشكلة عبر <strong>العمليات الذرية المتكاملة (Atomic Database Transactions)</strong> في قاعدة البيانات.</li>
+</ol>
+<h3 id="نطاق-النظام-system-scope-">نطاق النظام (System Scope)</h3>
+<ul>
+<li><strong>نظام الطلبات العام (Public Ordering System)</strong>: تصفح القائمة، السلة المتكاملة، حساب رسوم التوصيل الديناميكية بناءً على تحديد الموقع الجغرافي، وإرسال الفاتورة آلياً عبر الواتساب مع رابط تتبع مشفر.</li>
+<li><strong>نظام إدارة وتتبع الطلبات (Admin Orders Workflow)</strong>: استقبال الطلبات لحظياً وبث التحديثات، مع معالجة الحالات (تأكيد، تحضير، توصيل، إلغاء) بدقة عبر التحديث اللحظي وقفل البيانات المتزامن.</li>
+<li><strong>نظام التقارير والتحليلات (Reports & Analytics)</strong>: تحليل المبيعات، ومقارنة الفترات الزمنية ومعدلات النمو، وتحديد فترات الذروة، وإحصائيات المنتجات والعملاء والأفواج الجغرافية.</li>
+<li><strong>نظام الفوترة والمطابقة (Billing & Invoices)</strong>: توليد فواتير حرارية (Customer Receipts) احترافية جاهزة للطباعة مع كود QR مدمج لتتبع الطلب، وتوليد جداول إكسل للمطابقات المالية.</li>
+</ul>
+<h3 id="الفئات-المستهدفة-والصلاحيات-users-roles-">الفئات المستهدفة والصلاحيات (Users &amp; Roles)</h3>
+<ol>
+<li><strong>العميل / الزائر (Guest / Customer)</strong>: مستخدم للواجهة العامة، يمكنه إنشاء سلة، تحديد موقعه، إتمام الطلب وتتبعه عبر رابط فريد UUID دون الحاجة لحساب مسجل.</li>
+<li><strong>مدير الطلبات (Order Manager)</strong>: حساب إداري مقيد بصلاحيات تشغيلية فقط، مسموح له بالوصول لصفحة الطلبات والتحكم بحالاتها وتوليد فواتيرها، ويُمنع من الاطلاع على التقارير المالية أو الإعدادات أو تعديل المنتجات.</li>
+<li><strong>المدير العام / المسؤول (Admin / Manager)</strong>: حساب إداري ذو صلاحيات كاملة، يمتلك حق الوصول للتقارير والإعدادات وإدارة وتعديل الفروع والأصناف وتوليد التقارير.</li>
+<li><strong>المطور (Developer)</strong>: أعلى مستوى وصول للنظام للتحكم في الإعدادات المتقدمة وصيانة العمليات التقنية.</li>
+</ol>
+<hr>
+<h2 id="-2-system-architecture-high-level-design-">🏗 2. System Architecture (High-Level Design)</h2>
+<p>يعتمد نظام بيت المندي على معمارية <strong>Monolith هجينة (Hybrid Monolith)</strong> مدعومة بـ Backend-as-a-Service (BaaS) تقدمها منصة Supabase. يتم تطوير النظام بالكامل باستخدام إطار عمل Next.js 14 بميزاته الحديثة (App Router).</p>
+<h3 id="تدفق-البيانات-الشامل-end-to-end-data-flow-">تدفق البيانات الشامل (End-to-End Data Flow)</h3>
+<pre><code class="lang-">[الزبون: متصفح عميل] ──(Server Action: createOrder)──&gt; [Next.js خادم التطبيق]
+                                                               │
+                                                               ├─&gt; (حساب المسافة والرسوم) ─&gt; [محرك الجغرافيا + OSRM]
+                                                               ├─&gt; (حساب الأسعار والعروض) ─&gt; [Pricing Engine]
+                                                               │
+                                                               └──(Drizzle Transaction)──&gt; [قاعدة بيانات PostgreSQL]
+                                                                                               │
+                                                                                       (Supabase Realtime)
+                                                                                               │
+                                                                                               ▼
+                                                                                   [لوحة الإدارة: تتبع فوري]</code></pre>
+<h3 id="المكونات-الأساسية-للنظام-core-components-">المكونات الأساسية للنظام (Core Components)</h3>
+<ol>
+<li><strong>طبقة العرض والعميل (Frontend Client)</strong>:</li>
+</ol>
+<ul>
+<li>مبنية على مكتبة React المدمجة في Next.js.</li>
+<li>إدارة السلة المؤقتة عبر مخزن <strong>Zustand Client State</strong> مع تفعيل الحفظ التلقائي في الـ Local Storage.</li>
+<li>واجهات خرائط تفاعلية لتحديد موقع التوصيل على خرائط OpenStreetMap ومطابقتها محلياً.</li>
+</ul>
+<ol>
+<li><strong>خادم التطبيق والخلفية (Backend Server)</strong>:</li>
+</ol>
+<ul>
+<li>يعتمد على Next.js Server Actions كطبقة استدعاء آمنة وخلفية للعمليات المؤثرة (Mutative Operations) مثل إنشاء الطلبات وتحديث حالاتها.</li>
+<li>استخدام Route Handlers (APIs) لعمليات الاستعلام المتكررة واستخراج البيانات (مثل تصدير ملفات إكسل والتقارير والتحقق الجغرافي).</li>
+<li>تطبيق حماية صارمة عبر Middleware للتحقق من هوية وأدوار المستخدمين الإداريين.</li>
+</ul>
+<ol>
+<li><strong>طبقة البيانات والخدمات السحابية (Database & BaaS Layer)</strong>:</li>
+</ol>
+<ul>
+<li><strong>PostgreSQL Database</strong>: مستضافة على Supabase وتحتوي على البنية الهيكلية الكاملة.</li>
+<li><strong>Supabase Auth</strong>: مزود التوثيق الأمني وإدارة الجلسات للمستخدمين الإداريين.</li>
+<li><strong>Supabase Realtime Engine</strong>: محرك بث فوري يعتمد على بروتوكول WebSockets، يتيح للوحة الإدارة الاستماع لأي عمليات إدراج أو تحديث على جدول <code>orders</code> لتحديث الواجهة تلقائياً وبشكل فوري دون الحاجة لعمليات التكرار (Polling).</li>
+<li><strong>Drizzle ORM</strong>: محرك الاستعلام وتخطيط الجداول (ORM) المستخدم في السيرفر، والذي يدير الاتصال المباشر بقاعدة البيانات لتنفيذ العمليات والعمليات الذرية المعقدة (Transactions).</li>
+</ul>
+<ol>
+<li><strong>الخدمات الجغرافية ومحرك المسارات (GIS & Routing Services)</strong>:</li>
+</ol>
+<ul>
+<li><strong>Local GIS Resolver</strong>: محرك محلي يستند إلى خوارزميات Turf.js وفهارس B-Tree الممثلة في مكتبة RBush Spatial Index، يقوم بفحص إحداثيات الزبون ومطابقتها بمضلعات حدود مديريات صنعاء المخزنة في ملف GeoJSON محلي.</li>
+<li><strong>OSRM Driving API</strong>: محرك خارجي مفتوح لحساب مسارات القيادة الفعلية وتقدير مسافة القيادة وحساب زمن الرحلة الفعلي.</li>
+</ul>
+<h3 id="نمط-التواصل-communication-protocol-">نمط التواصل (Communication Protocol)</h3>
+<ul>
+<li><strong>Server Actions</strong>: تواصل ثنائي الاتجاه مشفر وتلقائي بين واجهة العميل والسيرفر لتمرير الأوامر الحركية.</li>
+<li><strong>REST API</strong>: مسارات معيارية لعمليات قراءة البيانات وتوليد التقارير.</li>
+<li><strong>WebSocket</strong>: اتصال مستمر لنقل التحديثات الفورية للطلبات وحالات التشغيل.</li>
+</ul>
+<h3 id="نقاط-الدخول-والخروج-entry-exit-points-">نقاط الدخول والخروج (Entry &amp; Exit Points)</h3>
+<ul>
+<li><strong>نقاط الدخول (Entry Points)</strong>:</li>
+<li>الواجهة العامة للعملاء: مسار الجزر الرئيسي <code>/</code> ومسار القائمة <code>/menu</code>.</li>
+<li>لوحة تحكم الإدارة: مسار <code>/admin/login</code> لتسجيل الدخول، ومسار الـ Middleware للتحقق الفوري لجلسات الكوكيز.</li>
+<li><strong>نقاط الخروج (Exit Points)</strong>:</li>
+<li>توجيه رابط تأكيد الطلب المنسق إلى تطبيق WhatsApp الخاص بالمطعم.</li>
+<li>طباعة الفواتير كنسخ ورقية حرارية للزبائن وعمال التوصيل.</li>
+<li>تصدير تحليلات المبيعات كملفات Excel.</li>
+</ul>
+<hr>
+<h2 id="-3-architecture-diagram-mermaid-">📊 3. Architecture Diagram (Mermaid)</h2>
+<p>مخطط تدفق العمليات والمعمارية الفنية للنظام:</p>
+<div class="mermaid">graph TD
+    %% Client Layer
+    subgraph ClientLayer [طبقة العميل - Client Space]
+        Guest[الزبون / الزائر]
+        AdminUI[واجهة الإدارة والموظفين]
+        Zustand[Zustand Cart Store]
+        RealtimeSub[مستمع البث اللحظي]
+    end
+
+    %% Routing &amp; Gateway
+    subgraph RoutingLayer [طبقة التوجيه والأمان]
+        NextMW[Next.js Middleware]
+        AuthGuard[Permissions Engine]
+    end
+
+    %% Application Server
+    subgraph AppServer [Next.js Server - Node.js Environment]
+        ServerActions[Server Actions: orders.ts]
+        APIRoutes[API Routes: Reports/Auth]
+        GeoResolver[GIS Resolver: resolve-location.ts]
+        PricingEngine[Pricing &amp; Offers Engine]
+        Drizzle[Drizzle ORM Client]
+        Logger[Unified Logger]
+    end
+
+    %% Database &amp; BaaS Services
+    subgraph DatabaseLayer [Supabase Cloud Stack]
+        SupaAuth[Supabase Auth]
+        SupaRealtime[Supabase Realtime Websockets]
+        DB[(PostgreSQL Database)]
+        RLS[Row Level Security]
+    end
+
+    %% External APIs
+    subgraph ExternalAPIs [الخدمات الخارجية]
+        OSRM[OSRM Driving Route API]
+        Nominatim[OSRM Nominatim Fallback]
+        WhatsApp[WhatsApp Message Builder]
+    end
+
+    %% Interactions
+    Guest --&gt;|1. تصفح وحفظ السلة| Zustand
+    Guest --&gt;|2. إتمام الطلب وتحديد الموقع| NextMW
+    AdminUI --&gt;|طلب تسجيل الدخول / إدارة| NextMW
+    
+    NextMW --&gt;|تحقق الصلاحيات| AuthGuard
+    AuthGuard --&gt;|فحص الجلسة| SupaAuth
+    
+    NextMW --&gt;|توجيه الطلبات المقبولة| ServerActions
+    AdminUI --&gt;|قراءة التحليلات| APIRoutes
+    
+    ServerActions --&gt;|التحقق الجغرافي| GeoResolver
+    GeoResolver --&gt;|فحص الحدود والمضلعات| GeoResolver
+    GeoResolver -.-&gt;|استعلام المسافة والمسار| OSRM
+    OSRM -.-&gt;|فشل الاتصال / بديل| Nominatim
+    
+    ServerActions --&gt;|إعادة حساب الفواتير والعروض| PricingEngine
+    ServerActions --&gt;|حفظ الطلب atomic| Drizzle
+    
+    Drizzle --&gt;|تنفيذ المعاملات| RLS
+    RLS --&gt; DB
+    
+    DB --&gt;|إشعار الإدراج/التعديل| SupaRealtime
+    SupaRealtime --&gt;|بث فوري| RealtimeSub
+    RealtimeSub --&gt;|تحديث فوري للقائمة والطلبات| AdminUI
+    
+    ServerActions --&gt;|توليد فاتورة الواتساب| WhatsApp
+    WhatsApp --&gt;|إرسال وتأكيد| Guest</div>
+<hr>
+<h2 id="-4-project-structure-analysis-تحليل-هيكل-المشروع-">📁 4. Project Structure Analysis (تحليل هيكل المشروع)</h2>
+<p>يتبع مشروع بيت المندي هيكلية Next.js App Router المقيّدة، مقسمة إلى مجلدات تنظيمية تعزل منطق الواجهات عن الاتصال بقاعدة البيانات والعمليات الحسابية:</p>
+<h3 id="هيكل-المجلدات-الرئيسي-folder-structure-">هيكل المجلدات الرئيسي (Folder Structure)</h3>
+<pre><code class="lang-text">baitalmandiwibapp/
+├── docs/                      # يحتوي على تقارير التدقيق الأمني وعمليات التنظيف والتقييم الفني
+├── supabase/                  # يحتوي على ملفات الهجرة وقواعد السياسات الأمنية RLS
+├── sanaa-map-integration/     # يحتوي على الحدود الجغرافية الرقمية لمدينة صنعاء (GeoJSON)
+├── src/
+│   ├── actions/               # إجراءات الخادم (Server Actions) للاتصال المباشر والمعاملات
+│   │   ├── orders.ts          # منطق إنشاء وتحديث الطلبات وحساب رسوم التوصيل والتحقق منها
+│   │   ├── categories.ts      # إدارة CRUD لتصنيفات الأطباق
+│   │   ├── items.ts           # إدارة CRUD للأصناف والوجبات
+│   │   └── orders-offers.ts   # إدارة وتأكيد لقطات العروض التاريخية للطلبات
+│   ├── app/                   # مسارات التطبيق وتوجيه Next.js (App Router)
+│   │   ├── admin/             # لوحة تحكم الإدارة (الطلبات، التقارير، القائمة، العروض، الإعدادات)
+│   │   ├── api/               # مسارات الـ API (التقارير، تفكيك النطاقات، تسجيل دخول السيرفر)
+│   │   ├── cart/              # صفحة السلة العامة وإتمام الطلب للزبائن
+│   │   ├── my-orders/         # الواجهة المحلية لاستعراض سلال المستخدم
+│   │   ├── t/[token]/         # صفحة التتبع اللحظية للزبائن عبر مفتاح التتبع المجهول
+│   │   └── layout.tsx         # الهيكل العام المشترك للواجهة
+│   ├── cache/                 # ملفات الكاش وإدارة الذاكرة المؤقتة (الإعدادات العامة)
+│   ├── components/            # مكونات واجهة المستخدم القابلة لإعادة الاستخدام (الفواتير، التبويبات)
+│   ├── db/                    # إعدادات Drizzle ORM وملفات المخطط الهيكلي لقاعدة البيانات
+│   │   ├── index.ts           # نقطة اتصال قاعدة البيانات عبر Drizzle
+│   │   └── schema.ts          # المخطط التعريفي الكامل لجميع الجداول والعلاقات والأنواع (Types)
+│   ├── lib/                   # خدمات ومحركات التطبيق المشتركة
+│   │   ├── geo/               # محرك الجغرافيا ومطابقة النقاط بالمضلعات وصنعاء الجغرافية
+│   │   ├── maps/              # محرك الخرائط والاتصال بـ OSRM لحساب المسار الحقيقي
+│   │   ├── pricing-engine.ts  # محرك إعادة تسعير السلة والمنتجات الإجمالي
+│   │   ├── offer-pricing.ts   # منطق تسعير الباقات وحساب الخصومات المتعددة
+│   │   ├── permissions.ts     # محرك فحص الصلاحيات المعزول والقابل للاستخدام في العميل والسيرفر
+│   │   └── logger.ts          # مسجل العمليات الموحد (Unified Tagged Logger)
+│   ├── realtime/              # مزود قنوات البث اللحظي للطلبات والواجهات
+│   ├── repositories/          # مستودعات الاستعلام المباشر المعزولة (CRUD) عن العمليات التشغيلية
+│   └── store/                 # مخزن الحالة للعميل (Zustand Cart Store)</code></pre>
+<h3 id="نقاط-الدخول-الرئيسية-entry-points-">نقاط الدخول الرئيسية (Entry Points)</h3>
+<ol>
+<li><strong><code>src/middleware.ts</code></strong>: نقطة العبور والحارس الأمني للنظام؛ يتحكم في فحص الـ Cookies، وتحديد هوية المستخدم، والتحقق من دوره (Role-Based Routing)، ومنع الوصول غير المصرح به للصفحات التشغيلية أو المالية.</li>
+<li><strong><code>src/app/page.tsx</code></strong>: نقطة الدخول العامة للعملاء (الصفحة الرئيسية).</li>
+<li><strong><code>src/app/admin/page.tsx</code></strong>: نقطة الدخول الرئيسية للوحة تحكم الإدارة.</li>
+</ol>
+<h3 id="الوحدات-الأساسية-والخدمات-المشتركة-core-modules-utilities-">الوحدات الأساسية والخدمات المشتركة (Core Modules &amp; Utilities)</h3>
+<ul>
+<li><strong>محرك الموقع والتوصيل الجغرافي (<code>src/lib/geo</code>)</strong>: محرك GIS محلي مكتوب بالكامل لفك تشفير الإحداثيات وتقييم صلاحيات التوصيل دون الحاجة لأدوات مدفوعة.</li>
+<li><strong>مسجل النظام الموحد (<code>src/lib/logger.ts</code>)</strong>: نظام تتبع موحد يطبق تصنيفاً مسبقاً للعمليات (<code>LogTag</code>) لتسهيل المراقبة والتحقق من الأخطاء في منصة الاستضافة (Console Logs).</li>
+</ul>
+<h3 id="الارتباطات-والاعتماديات-الداخلية-internal-dependencies-">الارتباطات والاعتماديات الداخلية (Internal Dependencies)</h3>
+<pre><code class="lang-">[Pages / Client Side Component]
+       │
+       ▼
+[Server Actions / API Handlers]  ──&gt;  [Repositories]
+       │                                     │
+       ├─&gt; [GIS &amp; Pricing Engines]           ▼
+       │                              [Drizzle ORM]
+       ▼                                     │
+[Unified Logger / Cookies Store]             ▼
+                                      [PostgreSQL DB]</code></pre>
+<div class="alert alert-important"><strong>⚠️ IMPORTANT</strong> تم عزل منطق التحقق من الصلاحيات والمسارات المشترك بالكامل في <code>src/lib/permissions.ts</code> ليكون مستقلاً عن كود السيرفر أو الكوكيز. يمنع هذا التصميم حدوث مشاكل تداخل حدود الاستيراد (Boundary Mismatch) التي تؤدي إلى فشل بناء المشروع (Build Failures) عند استخدام مكونات الخادم في مكونات العميل.</div>
+<hr>
+<h2 id="-5-backend-architecture-بنية-الخلفية-">⚙️ 5. Backend Architecture (بنية الخلفية)</h2>
+<p>تم تصميم خلفية النظام بالاعتماد على بنية معمارية متعددة الطبقات (Multi-layered Architecture) تجمع بين الأمان والسرعة.</p>
+<h3 id="مسارات-الـ-api-الرئيسية-api-endpoints-">مسارات الـ API الرئيسية (API Endpoints)</h3>
+<ul>
+<li><code>POST /api/auth/login</code>: معالجة تسجيل دخول المسؤولين وبناء جلسات الكوكيز.</li>
+<li><code>GET /api/reports/cron</code>: تشغيل المهام المجدولة وإرسال التقارير اليومية والأسبوعية للبريد (محمية برمز أمني <code>CRON_SECRET</code>).</li>
+<li><code>POST /api/reports/schedule</code>: جدولة التقارير التشغيلية والمالية.</li>
+<li><code>POST /api/resolve-zone</code>: فك تشفير النطاق الجغرافي بناءً على إحداثيات خطوط الطول والعرض.</li>
+</ul>
+<h3 id="طبقات-النظام-ونظام-تدفق-منطق-العمل-business-logic-flow-">طبقات النظام ونظام تدفق منطق العمل (Business Logic Flow)</h3>
+<pre><code class="lang-">[استقبال الطلب في Server Action]
+               │
+               ▼
+   [التحقق من صحة المدخلات وجاهزية التوصيل] 
+               │
+               ▼
+[إعادة حساب الأسعار والعروض خادمياً بالكامل] 
+               │
+               ▼
+ [الاتصال بقاعدة البيانات عبر معاملة ذرية Transaction] 
+               │
+   ┌───────────┴───────────┐
+   ▼                       ▼
+[إدراج الطلب]           [إدراج عناصر السلة]
+   │                       │
+   └───────────┬───────────┘
+               │
+               ▼
+  [حفظ حالة الطلب وتاريخ الحالات الأولي]
+               │
+               ▼
+    [إتمام وحفظ لقطات العروض والخصومات]</code></pre>
+<h3 id="برمجيات-الوساطة-middleware-security-guards-">برمجيات الوساطة (Middleware &amp; Security Guards)</h3>
+<ul>
+<li><strong>Authentication</strong>: يقوم الـ Middleware باسترداد جلسة المستخدم من Supabase Auth عبر استدعاء <code>supabase.auth.getUser()</code>. وفي حال عدم وجود الجلسة، يتم توجيه المستخدم فورياً لصفحة تسجيل الدخول وتطهير الكوكيز القديمة.</li>
+<li><strong>Authorization</strong>: يتم التحقق من دور المستخدم الإداري المخزن في جدول <code>admin_users</code> ومطابقته بالمسار المطلوب عبر دوال فحص الصلاحيات الموحدة في <code>src/lib/permissions.ts</code>.</li>
+<li><strong>Validation</strong>: يتم فحص أرقام الهواتف والتأكد من صيغتها اليمنية المقبولة جغرافياً، كما يتم فحص إحداثيات التوصيل للتأكد من عدم تجاوزها الحد الأقصى للمسافة المسموحة (15 كم بشكل افتراضي).</li>
+</ul>
+<h3 id="استراتيجية-معالجة-الأخطاء-error-handling-strategy-">استراتيجية معالجة الأخطاء (Error Handling Strategy)</h3>
+<ul>
+<li><strong>Transactions Atomicity</strong>: يتم معالجة العمليات الحساسة مثل إنشاء الطلبات داخل نطاق المعاملات الذرية <code>db.transaction()</code> الخاصة بـ Drizzle ORM. إذا فشلت أي عملية إدخال (مثل إدراج عناصر الطلب أو تاريخ الحالة)، يتم إرجاع قاعدة البيانات تلقائياً لحالتها السابقة (Rollback) دون ترك أي سجلات يتيمة أو بيانات معلقة.</li>
+<li><strong>Optimistic Locking</strong>: تعتمد جداول الطلبات على عمود <code>version</code> لضمان عدم تعارض البيانات عند قيام أكثر من مسؤول بتعديل نفس الطلب في نفس اللحظة؛ حيث يتم مطابقة رقم الإصدار قبل التعديل لضمان اتساق البيانات.</li>
+</ul>
+<h3 id="اعتبارات-الأداء-performance-considerations-">اعتبارات الأداء (Performance Considerations)</h3>
+<ul>
+<li><strong>Memoization Cache</strong>: يتم تخزين نتائج مطابقة النطاقات الجغرافية للإحداثيات المتكررة في ذاكرة مؤقتة محلية (<code>memoCache</code>) ذات سعة استيعابية تصل لـ 5000 سجل وصلاحية زمنية تمتد لـ 24 ساعة للحد من الضغط على محركات الـ GIS ومعالجة البيانات المتكررة.</li>
+<li><strong>R-Tree Spatial Query</strong>: بدلاً من فحص إحداثيات العميل مع كافة مناطق صنعاء جغرافياً، يتم تصفية المناطق المرشحة أولاً باستخدام فهارس الصناديق المحيطة (R-Tree Indexing via RBush) قبل إجراء الفحص الدقيق والنهائي (Containment test) مما يسرع عملية البحث آلاف المرات.</li>
+</ul>
+<hr>
+<h2 id="-6-database-architecture-بنية-قاعدة-البيانات-">🗄 6. Database Architecture (بنية قاعدة البيانات)</h2>
+<p>تعتمد قاعدة بيانات النظام على محرك PostgreSQL مع بناء الجداول وتنسيق العلاقات عبر Drizzle ORM وتأمين الجداول بسياسات حماية متقدمة على مستوى الصفوف (Row Level Security - RLS).</p>
+<h3 id="مخطط-العلاقات-والجداول-الأساسية-database-schema-">مخطط العلاقات والجداول الأساسية (Database Schema)</h3>
+<pre><code class="lang-text">  ┌──────────────────┐               ┌──────────────────┐
+  │      users       │ 1           * │      orders      │
+  │──────────────────│──────────────&gt;│──────────────────│
+  │ id (PK) - UUID   │               │ id (PK) - UUID   │
+  │ full_name - Text │               │ order_number (U) │
+  │ phone (U) - Text │               │ customer_id (FK) │
+  └──────────────────┘               │ status - Enum    │
+                                     │ total_amount     │
+                                     └──────────────────┘
+                                               │ 1
+                                               │
+                                               ├─────────────────────────┐
+                                               │ *                       │ *
+                                               ▼                         ▼
+                                     ┌──────────────────┐      ┌──────────────────┐
+                                     │   order_items    │      │   order_offers   │
+                                     │──────────────────│      │──────────────────│
+                                     │ id (PK) - UUID   │      │ id (PK) - UUID   │
+                                     │ order_id (FK)    │      │ order_id (FK)    │
+                                     │ item_name - Text │      │ final_price      │
+                                     └──────────────────┘      └──────────────────┘
+                                                                         │ 1
+                                                                         │
+                                                                         ▼ *
+                                                               ┌──────────────────┐
+                                                               │ order_offer_items│
+                                                               │──────────────────│
+                                                               │ id (PK) - UUID   │
+                                                               │ order_offer_id   │
+                                                               └──────────────────┘</code></pre>
+<h3 id="جداول-قاعدة-البيانات-بالتفصيل-tables-metadata-">جداول قاعدة البيانات بالتفصيل (Tables Metadata)</h3>
+<ol>
+<li><strong>جدول <code>orders</code></strong>: يحمل البيانات الأساسية للفاتورة والتوصيل، ويشتمل على إحداثيات الموقع وتفصيل رسوم التوصيل الإضافية (رسوم الطقس، رسوم وقت الذروة، رسوم الكيلومترات الإضافية).</li>
+<li><strong>جدول <code>order_items</code></strong>: يحتوي على أسطر عناصر الطلب المستقلة (اسم الصنف، الحجم، الكمية، السعر الفردي والإجمالي).</li>
+<li><strong>جدول <code>order_offers</code></strong>: يحتوي على لقطة تاريخية (Snapshot) للعروض والباقات المرفقة بالطلب في وقت الشراء لمنع تغير المبالغ مستقبلاً في حال تعديل العرض الأصلي.</li>
+<li><strong>جدول <code>order_offer_items</code></strong>: المكونات التفصيلية الخاصة بالباقة المرفقة في الطلب وقت الشراء.</li>
+<li><strong>جدول <code>customer_tokens</code></strong>: يربط أرقام هواتف العملاء برموز تتبع مشفرة ومجهولة، مما يتيح تتبع الطلب بشكل آمن دون تشفير روابط مكشوفة للعامة.</li>
+<li><strong>جدول <code>admin_users</code></strong>: معلومات المدراء والمشرفين وأدوارهم المحددة.</li>
+<li><strong>جدول <code>site_settings</code></strong>: مخزن الإعدادات العامة للنظام (مثل إحداثيات المطعم، رسوم التوصيل الأساسية، معايير وقت الذروة، ورسوم الطقس السيء).</li>
+</ol>
+<h3 id="السياسات-الأمنية-والحماية-row-level-security-">السياسات الأمنية والحماية (Row-Level Security)</h3>
+<p>تم تأمين قاعدة البيانات بتفعيل سياسات RLS على الجداول الحساسة وفق الضوابط التالية:</p>
+<ul>
+<li><strong>جدول <code>orders</code></strong>:</li>
+<li>يُسمح للمشرفين والمدراء بالوصول الكامل لجميع الصفوف (SELECT, UPDATE, INSERT).</li>
+<li>يُسمح للزوار غير المسجلين بالاستعلام (SELECT) فقط إذا تطابقت قيمة رمز التتبع <code>tracking_token</code> مع الرمز المرسل في الرابط (مما يمنع تطفل الزوار على طلبات الزوار الآخرين).</li>
+<li>يُسمح بإجراء عمليات الإدخال (INSERT) للزوار دون شروط لإتمام عملية الشراء.</li>
+<li><strong>جدول <code>order_items</code></strong>:</li>
+<li>يُسمح بالاستعلام والإدخال للعملاء فقط إذا كان معرف الطلب الأب (<code>order_id</code>) مرئياً ومسموحاً به في سياسة جدول <code>orders</code> المرفقة.</li>
+<li><strong>جدول <code>order_status_history</code></strong>:</li>
+<li>مسموح للزوار فقط بعملية الإدخال الأولى عند إنشاء الطلب لتسجيل الحالة الافتتاحية (<code>pending</code>)، بينما تقتصر عمليات الإدراج اللاحقة والتعديل على حسابات المسؤولين فقط.</li>
+<li><strong>جدول <code>scheduled_reports</code> & <code>audit_logs</code></strong>:</li>
+<li>تفعيل حظر كامل للوصول للعامة؛ تقتصر عمليات القراءة والإدخال بالكامل على المسؤولين الإداريين ومستخدمي التطوير.</li>
+</ul>
+<div class="alert alert-warning"><strong>🔶 WARNING</strong> يحتوي النظام على قاعدة لمنع حذف سجلات المبيعات نهائياً من قاعدة البيانات لحماية التقارير المالية وضمان الحوكمة الكاملة: ``<code>sql CREATE RULE prevent_orders_delete AS ON DELETE TO orders DO INSTEAD NOTHING; </code>`<code> تعترض هذه القاعدة كافة محاولات الحذف المباشر (SQL DELETE) وتقوم بإلغائها تماماً؛ لذلك يعتمد النظام بشكل كلي على الأرشفة اللطيفة (Soft Deletion) عبر العمودين </code>is_archived<code> و </code>is_deleted`.</div>
+<hr>
+<h2 id="-7-frontend-architecture-بنية-الواجهة-الأمامية-">🎨 7. Frontend Architecture (بنية الواجهة الأمامية)</h2>
+<p>تتميز واجهة التطبيق بتصميم عصري (Premium UI/UX) وتفاعلي يعزل واجهة لوحة التحكم التشغيلية عن واجهة الزبائن العامة.</p>
+<h3 id="التقنيات-والمكتبات-المستخدمة">التقنيات والمكتبات المستخدمة</h3>
+<ul>
+<li><strong>Framework</strong>: Next.js 14 App Router.</li>
+<li><strong>Styling</strong>: Vanilla CSS مدعوماً بمتغيرات مخصصة (CSS Variables) لدعم نسق الألوان والهوية البصرية الخاصة ببيت المندي (تدرجات العنابي، الذهبي المضيء، والتأثيرات الزجاجية Glassmorphic Panels).</li>
+<li><strong>State Management</strong>: مكتبة Zustand لإدارة حالة سلة المشتريات بشكل مركزي خفيف، مع استخدام ملحق الحفظ المباشر <code>persist</code> لحفظ بيانات السلة في المتصفح في حال انقطاع التيار أو إغلاق الصفحة.</li>
+<li><strong>Icons</strong>: مكتبة Lucide React للأيقونات الاحترافية الموحدة.</li>
+</ul>
+<h3 id="استراتيجية-جلب-البيانات-data-fetching-strategy-">استراتيجية جلب البيانات (Data Fetching Strategy)</h3>
+<ul>
+<li><strong>Public Page Rendering</strong>: توليد محتوى تصفح الأطباق والعروض بشكل شبه ثابت وهجين؛ حيث يتم قراءة البيانات مباشرة من مستودع القائمة <code>menuRepository</code> عبر واجهات Supabase السريعة.</li>
+<li><strong>Realtime Synchronization</strong>: تشترك الصفحات الحساسة (مثل لوحة تحكم الطلبات لدى الإدارة وصفحة تتبع الطلب لدى العميل) في قنوات البث الفوري المباشر <code>OrderRealtimeProvider</code>. عند قيام السيرفر بتغيير حالة الطلب، تتلقى الواجهة إشعاراً خلال أجزاء من الثانية لتقوم بتحديث المكون التشغيلي تلقائياً دون إعادة تحميل الصفحة.</li>
+</ul>
+<h3 id="تدفق-الواجهة-الرسومية-للزبون-ui-flow-">تدفق الواجهة الرسومية للزبون (UI Flow)</h3>
+<pre><code class="lang-">[الصفحة الرئيسية / القائمة] ──&gt; [إضافة الأصناف والعروض للسلة]
+                                           │
+                                           ▼
+[صفحة السلة العامة / إدخال البيانات] ──&gt; [تحديد الموقع التفاعلي جغرافياً]
+                                           │
+                                           ▼
+ [إرسال الطلب وحساب الرسوم السيرفرية] ──&gt; [التوجيه لصفحة التتبع المشفرة /t/token]
+                                           │
+                                           ▼
+                                [إرسال الفاتورة للواتساب لتأكيد الدفع]</code></pre>
+<hr>
+<h2 id="-8-core-system-workflows-تدفقات-العمليات-الأساسية-">🔄 8. Core System Workflows (تدفقات العمليات الأساسية)</h2>
+<h3 id="1-تدفق-التحقق-والأمان-authentication-session-lifecycle-">1. تدفق التحقق والأمان (Authentication &amp; Session Lifecycle)</h3>
+<ul>
+<li><strong>الدخول</strong>: يقوم المسؤول بإدخال بياناته في <code>/admin/login</code> -> يتم إرسالها لـ Route Handler خلفي آمن -> يقوم Supabase بإنشاء رمز التحقق وجلسة العمل ووضعها في ملفات الكوكيز المشفرة والآمنة (HttpOnly, Secure Cookies) -> يقوم الـ Middleware باستيقاف كافة الطلبات القادمة للتحقق من تطابق الكوكيز مع قاعدة بيانات Supabase.</li>
+<li><strong>الخروج</strong>: يتم استدعاء دالة قطع الجلسة من العميل -> إخطار Supabase لإبطال صلاحية الرمز -> تدمير ملفات الكوكيز محلياً وإعادة توجيه المستخدم لصفحة الدخول.</li>
+</ul>
+<h3 id="2-دورة-حياة-الطلب-order-lifecycle-">2. دورة حياة الطلب (Order Lifecycle)</h3>
+<pre><code class="lang-">[Pending] ──(الموافقة)──&gt; [Confirmed] ──(بدء الطهي)──&gt; [Preparing]
+                                                          │
+                                                    (تسليم السائق)
+                                                          │
+                                                          ▼
+[Delivered] &lt;──(تأكيد التسليم)── [On the way] &lt;───────────┘</code></pre>
+<ul>
+<li><strong>تأكيد الطلب</strong>: يتم استلام الفاتورة في حالة <code>pending</code>. يقوم المشرف بالمطابقة المالية للمدفوعات عبر الواتساب والموافقة على الطلب لتحويله إلى <code>confirmed</code>.</li>
+<li><strong>التحضير والتسليم</strong>: يتم إخطار المطبخ بالبدء في التحضير (<code>preparing</code>)، وعند الانتهاء يتم تحويل الطلب لـ (<code>on_the_way</code>) بعد تخصيص مندوب التوصيل، وعند التوصيل للموقع يتم نقله للحالة النهائية (<code>delivered</code>).</li>
+</ul>
+<h3 id="3-تدفق-الفوترة-والمطابقة-المالية-billing-invoicing-flow-">3. تدفق الفوترة والمطابقة المالية (Billing &amp; Invoicing Flow)</h3>
+<ul>
+<li><strong>توليد الفاتورة</strong>: يقوم النظام بسحب بيانات الفاتورة وإحداثياتها المالية واللقطات المخزنة للباقات -> يتم توليد صفحة ويب حرارية مخصصة للطباعة بنقرة واحدة بمقاس 80 مم (Thermal Receipt) -> تشتمل الفاتورة على كود QR فريد يحمل رابط التتبع الفوري للزبون، لسهولة المتابعة من قبل الزبون والمطعم.</li>
+</ul>
+<h3 id="4-تدفق-تحديث-البيانات-اللحظي-real-time-update-flow-">4. تدفق تحديث البيانات اللحظي (Real-Time Update Flow)</h3>
+<ul>
+<li><strong>بث التغيير</strong>: عند تعديل أي حقل في الطلب على السيرفر, يقوم مشغل PostgreSQL بإنشاء إشعار تغيير -> يلتقطه محرك Supabase Realtime -> يتم بث التحديث عبر قناة الويب سوكيت النشطة إلى المتصفحات -> يقوم مزود <code>OrderRealtimeProvider</code> باستقبال البيانات وتمريرها للدالة المخصصة لتحديث الواجهة والـ State محلياً وبشكل فوري.</li>
+</ul>
+<h3 id="5-تدفق-الأرشفة-والحذف-الآمن-delete-archive-flow-">5. تدفق الأرشفة والحذف الآمن (Delete &amp; Archive Flow)</h3>
+<ul>
+<li><strong>الحظر المباشر</strong>: عند نقر المدير على زر الحذف، يرسل النظام طلباً لتحديث الحقلين <code>is_deleted = true</code> و <code>deleted_at = now()</code> (Soft Delete). ولا يتم استخدام أوامر DELETE منعاً لتفعيل قاعدة Postgres الوقائية ومحافظةً على تاريخ الإحصائيات والأرقام المالية للمطعم.</li>
+</ul>
+<hr>
+<h2 id="-9-integrations-external-services-الربط-والخدمات-الخارجية-">🔌 9. Integrations &amp; External Services (الربط والخدمات الخارجية)</h2>
+<p>يمتاز النظام بتكامله مع عدة أدوات جغرافية وتواصلية لتأدية وظيفته التشغيلية بأعلى كفاءة:</p>
+<h3 id="1-محرك-التوصيل-الجغرافي-والخرائط-osrm-engine-api-">1. محرك التوصيل الجغرافي والخرائط (OSRM Engine API)</h3>
+<ul>
+<li><strong>الاستخدام</strong>: يتصل النظام بالرابط العام لمحرك <code>project-osrm.org</code> لطلب مسارات القيادة الفعلية بين إحداثيات الفرع الرئيسي لبيت المندي وإحداثيات نقطة تسليم الزبون.</li>
+<li><strong>البديل الوقائي (Haversine & Nominatim)</strong>: في حال انقطاع الخدمة أو بطء الاتصال الخارجي بـ OSRM، يقوم النظام تلقائياً بالتحويل الجغرافي المحلي؛ حيث يتم تقدير المسافة المستقيمة بين الإحداثيات (Haversine Distance) وضربها في معامل التفاف الطرق الافتراضي لمدينة صنعاء (<code>road_factor = 1.5</code>) لضمان عدم توقف عمليات تسعير التوصيل مطلقاً.</li>
+</ul>
+<h3 id="2-محرك-الجيومكان-المحلي-sana-a-boundaries-resolution-engine-">2. محرك الجيومكان المحلي (Sana'a boundaries Resolution Engine)</h3>
+<ul>
+<li><strong>الاستخدام</strong>: يستخدم مكتبتي Turf.js و RBush محلياً داخل بيئة Node.js لقراءة إحداثيات العميل والتأكد من وقوعها ضمن حدود مدينة صنعاء الجغرافية وتحديد الحي أو المديرية التي ينتمي إليها العميل بدقة بالغة وتخصيص رسوم التوصيل الأساسية لها.</li>
+</ul>
+<h3 id="3-بوابة-التواصل-عبر-الواتساب-whatsapp-integration-">3. بوابة التواصل عبر الواتساب (WhatsApp Integration)</h3>
+<ul>
+<li><strong>الاستخدام</strong>: بعد استلام الفاتورة وسحب رقم المسؤول من لوحة التحكم، يقوم النظام بتوليد رابط ويب موجه لـ <code>wa.me</code> يحمل رسالة نصية فائقة التنسيق تحتوي على الفاتورة وتفاصيل الطلب والمجموع المالي ورابط التتبع، ليقوم الزبون بنقرة واحدة بإرسالها للمطعم لتأكيد آلية الدفع.</li>
+</ul>
+<h3 id="4-نظام-إشعارات-وتقارير-البريد-smtp-mail-integration-">4. نظام إشعارات وتقارير البريد (SMTP Mail Integration)</h3>
+<ul>
+<li><strong>الاستخدام</strong>: تم إعداد بنية تحتية برمجية في مساري <code>/api/reports/schedule</code> و <code>/api/reports/cron</code> للاعتماد على مكتبة <code>nodemailer</code> لإرسال التقارير التشغيلية المجدولة للمسؤولين.</li>
+<li><strong>الحالة التشغيلية الحالية</strong>: الكود الفعلي المخصص للاتصال وإرسال البريد الحقيقي غير مفعل حالياً (موضوع كتعليق - Commented out) ويقوم بمحاكاة النجاح وإرجاع قيم وهمية (Mocked Success)، مما يستدعي ربطه بخادم SMTP حقيقي قبل النشر للإنتاج.</li>
+</ul>
+<hr>
+<h2 id="-10-scalability-future-growth-plan-خطة-التوسع-المستقبلي-">📈 10. Scalability &amp; Future Growth Plan (خطة التوسع المستقبلي)</h2>
+<p>تم تصميم النظام ليكون مرناً وقابلاً للنمو لمجاراة نمو الفروع وزيادة معدل الاستخدام:</p>
+<h3 id="1-إمكانية-التحول-لمعمارية-الخدمات-المصغرة-service-decomposition-">1. إمكانية التحول لمعمارية الخدمات المصغرة (Service Decomposition)</h3>
+<p>في حال التوسع لعدة مدن وزيادة حجم البيانات، يمكن فصل النظام إلى خدمات مستقلة:</p>
+<ul>
+<li><strong>خدمة الجغرافيا والخرائط (Geo-routing Service)</strong>: عزل كود Turf.js و RBush و OSRM في حاوية Docker مستقلة تخدم تطبيقات الزبائن والمندوبين وتخفف الحمل الحسابي عن خادم التطبيقات الرئيسي.</li>
+<li><strong>خدمة تتبع الطلبات المباشرة (Order & Realtime Service)</strong>: عزل بث قنوات الويب سوكيت في خادم خاص للتحكم بالضغط الشديد في أوقات الغداء والعشاء.</li>
+</ul>
+<h3 id="2-تحسين-ودعم-أعداد-مستخدمين-كبرى-database-scaling-">2. تحسين ودعم أعداد مستخدمين كبرى (Database Scaling)</h3>
+<ul>
+<li><strong>استخدام نسخ القراءة الفقطية (Read Replicas)</strong>: توجيه استعلامات لوحة الإحصائيات والتقارير المعقدة إلى قاعدة بيانات متطابقة للقراءة فقط، وعزل قاعدة البيانات الأساسية لعمليات الكتابة الفورية وتحديث الطلبات لضمان استقرار العمليات (Write Operations).</li>
+<li><strong>إستراتيجية الكاش المتقدمة (Edge Caching)</strong>: تخزين قوائم الأطعمة الثابتة في شبكات توزيع المحتوى (CDN) للتقليل من استعلامات قاعدة البيانات المباشرة للزوار الجدد.</li>
+</ul>
+<hr>
+<h2 id="-11-code-architecture-improvements-التحسينات-الفنية-المقترحة-">🧪 11. Code &amp; Architecture Improvements (التحسينات الفنية المقترحة)</h2>
+<p>بناءً على التحليل المعمق للرموز البرمجية والبنية الهيكلية الحالية للمشروع، يوصى بالتحسينات التقنية التالية:</p>
+<ol>
+<li><strong>تفعيل إرسال البريد الفعلي للتقارير المجدولة</strong>:</li>
+</ol>
+<ul>
+<li>إزالة منطق المحاكاة من مساري <code>/api/reports/schedule</code> و <code>/api/reports/cron</code> وإعداد الاتصال المباشر بخادم SMTP موثق (مثل Resend أو Amazon SES) وتخزين المفاتيح الأمنية في ملف <code>.env.local</code>.</li>
+</ul>
+<ol>
+<li><strong>استضافة خادم OSRM محلي (Self-hosted OSRM)</strong>:</li>
+</ol>
+<ul>
+<li>يعتمد النظام حالياً على الخادم التجريبي العام لـ OSRM والذي يفتقر لضمانات الخدمة (SLA) ويعاني من حدود معدل الاستخدام (Rate Limits). يوصى باستضافة نسخة OSRM خاصة بالمطعم على خادم سحابي مستقل (Docker Container) محمل بخارطة صنعاء واليمن فقط لضمان سرعة الاستجابة وأمان البيانات الجغرافية.</li>
+</ul>
+<ol>
+<li><strong>تحسين استعلامات التقارير الكبيرة (Materialized Views)</strong>:</li>
+</ol>
+<ul>
+<li>الاستعلامات المباشرة في <code>salesReport.ts</code> تقوم بعمليات حسابية معقدة (<code>SUM</code>, <code>AVG</code>, <code>EXTRACT</code>) على جدول الطلبات في الوقت الفعلي. مع نمو حجم البيانات، يوصى بإنشاء جداول مجمعة (Materialized Views) يتم تحديثها دورياً للتقارير التاريخية لتخفيف العبء عن المعالج.</li>
+</ul>
+<ol>
+<li><strong>تفعيل حماية معدل الطلبات (Rate Limiting)</strong>:</li>
+</ol>
+<ul>
+<li>تفتقر واجهات الخادم (Server Actions) و REST APIs لحماية ضد إغراق الطلبات (DDOS). يوصى بإدراج طبقة فحص معدل الطلبات (Rate Limiting Middleware) على مسارات الطلب وسحب الجغرافيا لتفادي استهلاك الخوادم.</li>
+</ul>
+<hr>
+<h2 id="-12-final-architectural-assessment-التقييم-الفني-النهائي-">🧾 12. Final Architectural Assessment (التقييم الفني النهائي)</h2>
+<h3 id="نقاط-القوة-strengths-">نقاط القوة (Strengths)</h3>
+<ul>
+<li><strong>بنية برمجية معزولة ونظيفة</strong>: فصل ممتاز للطبقات من خلال استبعاد كود السيرفر من مستوردات العميل لمنع فشل البناء نهائياً.</li>
+<li><strong>محرك جغرافيا مبتكر وذكي</strong>: تفادي التكلفة العالية لخرائط جوجل عبر بناء محرك GIS محلي يعتمد على R-Tree والدمج مع OSRM وخوارزميات الحدود الجغرافية التلقائية.</li>
+<li><strong>حفظ تاريخي سليم وموثوق (Pricing Snapshots)</strong>: تخزين تفاصيل العروض والأسعار وقت الطلب يضمن سلامة الأرقام المالية تاريخياً ويمنع التلاعب بالفواتير المصدرة.</li>
+<li><strong>تزامن فوري مذهل</strong>: استخدام قنوات البث الفوري من Supabase يوفر تجربة إدارة سريعة جداً لمعالجة حالات الطلبات.</li>
+</ul>
+<h3 id="نقاط-الضعف-weaknesses-">نقاط الضعف (Weaknesses)</h3>
+<ul>
+<li><strong>غياب ربط البريد الفعلي</strong>: بقاء كود إرسال التقارير معطلاً بشكل محاكاة تشغيلية.</li>
+<li><strong>الاعتماد على خادم OSRM الخارجي المجاني</strong>: يشكل خطورة تشغيلية في حال تعطل الخادم العام أو تغيير شروط استخدامه.</li>
+<li><strong>الافتقار لبوابة دفع إلكترونية متكاملة</strong>: يعتمد النظام كلياً على المطابقة اليدوية لمدفوعات المحافظ الإلكترونية والتحويلات البنكية عبر الواتساب.</li>
+</ul>
+<h3 id="جاهزية-النظام-للإنتاج-production-readiness-assessment-">جاهزية النظام للإنتاج (Production Readiness Assessment)</h3>
+<ul>
+<li><strong>النظام جاهز بنسبة 90% للنشر النهائي والتشغيل الفعلي</strong>.</li>
+<li>الـ 10% المتبقية تكمن في متطلبات الربط الواقعي (تزويد خادم SMTP الحقيقي لإرسال التقارير، وتأمين خادم خرائط OSRM محلي مستقل لمنع انقطاع تسعير التوصيل).</li>
+</ul>
+<h3 id="توصيات-cto-معمار-الأنظمة-النهائي">توصيات CTO / معمار الأنظمة النهائي</h3>
+<ol>
+<li><strong>الخطوة الأولى</strong>: البدء فوراً بشراء وتكوين حساب بريد إلكتروني تجاري وربطه بـ SMTP Server لتأمين استلام الإدارة للتقارير المجدولة.</li>
+<li><strong>الخطوة الثانية</strong>: بناء حاوية Docker خاصة لتشغيل OSRM وتغذيتها بملف خريطة اليمن المفتوحة لتوفير استجابة حسابية جغرافية مستقرة وسريعة جداً.</li>
+<li><strong>الخطوة الثالثة</strong>: ترقية خطة Supabase لتفعيل خيارات التوسيع التلقائي (Auto-scaling) ودعم قواعد البيانات الاحتياطية المتكررة مع انطلاق عمليات التوصيل الكثيفة.</li>
+</ol>
+<hr>
+
+<!-- FOOTER -->
+<div class="doc-footer">
+  <strong>بيت المندي</strong> — وثيقة سرية للاستخدام الداخلي فقط<br>
+  تم إعدادها بواسطة <strong>شركة إسناد التقنية (Esnaad Tech)</strong> · 2026
+</div>
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'base',
+    themeVariables: {
+      primaryColor: '#3D0820',
+      primaryTextColor: '#ffffff',
+      primaryBorderColor: '#c59b5f',
+      lineColor: '#c59b5f',
+      secondaryColor: '#f0e8d8',
+      tertiaryColor: '#fafafa',
+      fontFamily: 'Tajawal, Arial',
+      fontSize: '13px',
+    },
+    flowchart: { rankSpacing: 60, nodeSpacing: 40, curve: 'basis' }
+  });
+
+  // Auto-print after Mermaid renders (for PDF conversion)
+  mermaid.init(undefined, '.mermaid').then(() => {
+    console.log('[PDF] Mermaid diagrams rendered. Ready to print.');
+  }).catch(() => {
+    console.log('[PDF] Mermaid rendering skipped.');
+  });
+</script>
+</body>
+</html>

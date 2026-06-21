@@ -57,7 +57,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 401 })
     }
 
-    return NextResponse.json({ success: true })
+    const { data: adminData } = await supabase
+      .from('admin_users')
+      .select('role')
+      .eq('auth_user_id', data.user.id)
+      .maybeSingle()
+
+    return NextResponse.json({ success: true, role: adminData?.role || null })
   } catch (err) {
     console.error('[auth:login] Unexpected error', err)
     return NextResponse.json({ error: 'حدث خطأ غير متوقع في الخادم' }, { status: 500 })

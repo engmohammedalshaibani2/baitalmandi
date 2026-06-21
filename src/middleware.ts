@@ -6,6 +6,6 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // تقييد Middleware ليعمل فقط على مسارات الإدارة
-  matcher: ['/admin/:path*'],
+  // تقييد Middleware ليعمل فقط على مسارات الإدارة والتقارير
+  matcher: ['/admin', '/admin/:path*', '/api/reports/:path*', '/api/admin/:path*'],
 };

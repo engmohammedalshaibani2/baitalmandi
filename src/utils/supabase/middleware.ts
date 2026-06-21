@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-import { canAccessPage, getDefaultRedirect, type AdminRole } from '@/lib/permissions'
-
+import { canAccessRoute, type AdminRole } from '@/lib/permissions'
+import { logAuthAction } from '@/lib/auth/logger'
 async function getAdminRole(supabase: any, userId: string): Promise<AdminRole | null> {
   try {
     const { data } = await supabase
@@ -9,16 +9,23 @@ async function getAdminRole(supabase: any, userId: string): Promise<AdminRole | 
       .select('role')
       .eq('auth_user_id', userId)
       .maybeSingle()
-    return (data?.role as AdminRole) ?? null
+    let role = data?.role
+    if (role === 'order-manager') role = 'order_manager'
+    return (role as AdminRole) ?? null
   } catch {
     return null
   }
 }
 
 export async function updateSession(request: NextRequest) {
+  const pathname = request.nextUrl.pathname
   let supabaseResponse = NextResponse.next({
-    request,
+    request: {
+      headers: new Headers(request.headers)
+    }
   })
+  supabaseResponse.headers.set('x-pathname', pathname)
+
 
   try {
     const cookieNames = request.cookies.getAll().map((c) => c.name)
@@ -61,7 +68,6 @@ export async function updateSession(request: NextRequest) {
     console.log('[middleware] getUser error', err)
   }
 
-  const pathname = request.nextUrl.pathname
   const isLoginPage = pathname.startsWith('/admin/login')
   const isApiAuth = pathname.startsWith('/api/auth')
 
@@ -71,7 +77,14 @@ export async function updateSession(request: NextRequest) {
     if (!isLoginPage && !isApiAuth) {
       const url = request.nextUrl.clone()
       url.pathname = '/admin/login'
-      return NextResponse.redirect(url)
+      const redirectResponse = NextResponse.redirect(url)
+      // Clean up stale cookies if present to prevent repeated remote validation calls
+      request.cookies.getAll().forEach(c => {
+        if (c.name.startsWith('sb-') || c.name.includes('auth-token')) {
+          redirectResponse.cookies.set(c.name, '', { path: '/', expires: new Date(0) })
+        }
+      })
+      return redirectResponse
     }
     return supabaseResponse
   }
@@ -80,22 +93,35 @@ export async function updateSession(request: NextRequest) {
 
   if (isLoginPage) {
     if (role) {
+      if (pathname.startsWith('/api/')) return supabaseResponse;
       const redirectUrl = request.nextUrl.clone()
-      redirectUrl.pathname = getDefaultRedirect(role)
+      redirectUrl.pathname = role === 'order_manager' ? '/admin/orders' : '/admin'
       return NextResponse.redirect(redirectUrl)
     }
-    return supabaseResponse
+    return pathname.startsWith('/api/') ? NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) : supabaseResponse
   }
 
   if (!role) {
+    logAuthAction('UNAUTHORIZED_ACCESS', { userId: user?.id || 'guest', route: pathname, reason: 'No admin role' });
+    if (pathname.startsWith('/api/')) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const url = request.nextUrl.clone()
     url.pathname = '/admin/login'
     return NextResponse.redirect(url)
   }
 
-  if (!canAccessPage(role, pathname)) {
+  if (pathname === '/admin' && role === 'order_manager') {
+    logAuthAction('ADMIN_REDIRECT', { userId: user.id, role, from: pathname, to: '/admin/orders' });
+    if (pathname.startsWith('/api/')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     const url = request.nextUrl.clone()
-    url.pathname = getDefaultRedirect(role)
+    url.pathname = '/admin/orders'
+    return NextResponse.redirect(url)
+  }
+
+  if (!canAccessRoute(role, pathname)) {
+    logAuthAction('UNAUTHORIZED_ACCESS', { userId: user.id, role, route: pathname });
+    if (pathname.startsWith('/api/')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    const url = request.nextUrl.clone()
+    url.pathname = role === 'order_manager' ? '/admin/orders' : '/admin'
     return NextResponse.redirect(url)
   }
 

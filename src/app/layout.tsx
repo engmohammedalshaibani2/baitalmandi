@@ -7,27 +7,90 @@ import { SettingsProvider } from '@/lib/settings-context';
 import { ToastProvider } from '@/components/ui/Toast';
 import { OrderRealtimeProvider } from '@/realtime/OrderRealtimeProvider';
 
+const BASE_URL = 'https://baitalmandi.vercel.app';
+
 /* ── SEO Metadata ── */
 export const metadata: Metadata = {
+  metadataBase: new URL(BASE_URL),
   title: {
-    default: 'بيت المندي | أصالة الطعم اليمني',
-    template: '%s | بيت المندي',
+    default: 'مطعم بيت المندي | أفضل مطعم مندي ومأكولات يمنية في صنعاء',
+    template: '%s | مطعم بيت المندي',
   },
   description:
-    'مطعم بيت المندي — تجربة طعام يمنية أصيلة. اطلب أشهى المأكولات من مندي وزربيان ومضبي مع توصيل سريع.',
-  keywords: ['بيت المندي', 'مطعم يمني', 'مندي', 'زربيان', 'مضبي', 'صنعاء'],
-  authors: [{ name: 'بيت المندي' }],
-  robots: 'index, follow',
+    'مطعم بيت المندي يقدم أشهى أطباق المندي والمظبي والمأكولات اليمنية الأصيلة مع خدمة توصيل سريعة داخل صنعاء. اطلب الآن عبر الموقع أو واتساب.',
+  keywords: [
+    'بيت المندي',
+    'مطعم بيت المندي',
+    'Bait Al Mandi',
+    'Baitalmandi',
+    'مطعم مندي',
+    'مندي صنعاء',
+    'مطعم يمني صنعاء',
+    'مطعم مظبي',
+    'مطاعم صنعاء',
+    'مطعم يمني',
+    'مظبي',
+    'دجاج مندي',
+    'لحم مندي',
+    'زربيان',
+    'توصيل طعام صنعاء',
+    'مأكولات يمنية',
+    'مطعم بيت المندي صنعاء',
+  ],
+  authors: [{ name: 'مطعم بيت المندي', url: BASE_URL }],
+  creator: 'مطعم بيت المندي',
+  publisher: 'مطعم بيت المندي',
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  alternates: {
+    canonical: BASE_URL,
+    languages: {
+      'ar-YE': BASE_URL,
+    },
+  },
   openGraph: {
-    title: 'بيت المندي | أصالة الطعم اليمني',
-    description: 'اطلب أشهى المأكولات اليمنية والخليجية.',
+    title: 'مطعم بيت المندي | أفضل مطعم مندي في صنعاء',
+    description:
+      'أشهى أطباق المندي والمظبي والمأكولات اليمنية الأصيلة. خدمة توصيل سريعة لجميع أحياء صنعاء.',
+    url: BASE_URL,
+    siteName: 'مطعم بيت المندي',
     locale: 'ar_YE',
     type: 'website',
+    images: [
+      {
+        url: `${BASE_URL}/logo.jpg`,
+        width: 1200,
+        height: 630,
+        alt: 'مطعم بيت المندي - أصالة الطعم اليمني',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'مطعم بيت المندي | أفضل مطعم مندي في صنعاء',
+    description:
+      'أشهى أطباق المندي والمظبي والمأكولات اليمنية الأصيلة. خدمة توصيل سريعة لجميع أحياء صنعاء.',
+    images: [`${BASE_URL}/logo.jpg`],
   },
   icons: {
     icon: '/logo.jpg',
     apple: '/logo.jpg',
+    shortcut: '/logo.jpg',
   },
+  verification: {
+    // Add your Google Search Console verification token here:
+    // google: 'YOUR_GOOGLE_VERIFICATION_TOKEN',
+  },
+  category: 'restaurant',
 };
 
 export const viewport: Viewport = {
@@ -54,12 +117,73 @@ const themeScript = `
 })();
 `;
 
+/* ── JSON-LD: Restaurant + LocalBusiness Structured Data ── */
+const restaurantSchema = {
+  '@context': 'https://schema.org',
+  '@type': ['Restaurant', 'LocalBusiness'],
+  '@id': `${BASE_URL}/#restaurant`,
+  name: 'مطعم بيت المندي',
+  alternateName: ['Bait Al Mandi', 'Baitalmandi', 'بيت المندي'],
+  description:
+    'مطعم بيت المندي يقدم أشهى أطباق المندي والمظبي والمأكولات اليمنية الأصيلة مع خدمة توصيل سريعة داخل صنعاء.',
+  url: BASE_URL,
+  logo: {
+    '@type': 'ImageObject',
+    url: `${BASE_URL}/logo.jpg`,
+    width: 400,
+    height: 400,
+  },
+  image: `${BASE_URL}/logo.jpg`,
+  telephone: '+967-1-465888',
+  priceRange: '$$',
+  servesCuisine: ['يمني', 'مندي', 'مظبي', 'زربيان', 'Arabic', 'Yemeni', 'Middle Eastern'],
+  address: {
+    '@type': 'PostalAddress',
+    streetAddress: 'نهاية شارع الرباط، بداية شارع الستين',
+    addressLocality: 'صنعاء',
+    addressRegion: 'أمانة العاصمة',
+    addressCountry: 'YE',
+  },
+  geo: {
+    '@type': 'GeoCoordinates',
+    latitude: 15.360035,
+    longitude: 44.174848,
+  },
+  openingHoursSpecification: [
+    {
+      '@type': 'OpeningHoursSpecification',
+      dayOfWeek: [
+        'Monday', 'Tuesday', 'Wednesday', 'Thursday',
+        'Friday', 'Saturday', 'Sunday',
+      ],
+      opens: '11:00',
+      closes: '00:00',
+    },
+  ],
+  hasMenu: `${BASE_URL}/menu`,
+  acceptsReservations: true,
+  currenciesAccepted: 'YER',
+  paymentAccepted: 'Cash, Digital Wallet',
+  areaServed: {
+    '@type': 'City',
+    name: 'صنعاء',
+  },
+  sameAs: [
+    'https://baitalmandi.vercel.app',
+  ],
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ar" dir="rtl" suppressHydrationWarning>
       <head>
         {/* Blocking theme script — runs before CSS paint, eliminates flash */}
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        {/* JSON-LD Structured Data — Restaurant + LocalBusiness */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(restaurantSchema) }}
+        />
       </head>
       <body suppressHydrationWarning style={{ paddingTop: '72px', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         <OrderRealtimeProvider>

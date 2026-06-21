@@ -29,8 +29,12 @@ export default function AdminLogin() {
         return;
       }
 
-      // Hard navigate so the browser sends the new cookies to the server
-      window.location.href = '/admin';
+      const role = data.role;
+      if (role === 'order_manager' || role === 'order-manager') {
+        window.location.href = '/admin/orders';
+      } else {
+        window.location.href = '/admin';
+      }
     } catch (err) {
       console.error('[Login page] fetch error:', err);
       setError('تعذر الاتصال بالسيرفر، تحقق من الاتصال وحاول مرة أخرى');

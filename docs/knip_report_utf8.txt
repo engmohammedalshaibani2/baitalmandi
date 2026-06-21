@@ -1,0 +1,110 @@
+﻿ظùç injected env (5) from .env.local // tip: ظîء multiple files { path: ['.env.local', '.env'] }
+Unused files (18)
+run-migration.ts                         
+scripts/generate-pdfs.js                 
+src/actions/categories.ts                
+src/actions/items.ts                     
+src/app/admin/login/actions.ts           
+src/app/page.module.css                  
+src/cache/reportsCache.ts                
+src/lib/constants.ts                     
+src/lib/currency.ts                      
+src/lib/delivery-zones.ts                
+src/repositories/orderServerRepository.ts
+src/services/reports/analyticsEngine.ts  
+src/services/reports/customerReport.ts   
+src/services/reports/dashboardReport.ts  
+src/services/reports/ordersReport.ts     
+src/services/reports/productReport.ts    
+test-db.ts                               
+test-rls.ts                              
+Unused dependencies (11)
+@sentry/nextjs   package.json:12:6
+@upstash/redis   package.json:17:6
+dompurify        package.json:18:6
+file-saver       package.json:21:6
+gsap             package.json:23:6
+jspdf-autotable  package.json:26:6
+marked           package.json:29:6
+posthog-js       package.json:33:6
+puppeteer-core   package.json:34:6
+sharp            package.json:40:6
+xlsx             package.json:41:6
+Unused devDependencies (1)
+@types/dompurify  package.json:46:6
+Unlisted dependencies (2)
+postcss-load-config  postcss.config.mjs:1:10              
+rbush                src/lib/geo/resolve-location.ts:14:19
+Unused exports (39)
+getOrders               function  src/actions/orders.ts:462:23                
+getOrderById            function  src/actions/orders.ts:481:23                
+updateOrderStatus       function  src/actions/orders.ts:550:23                
+generateReceiptBody     function  src/components/invoice/receipt-html.ts:41:17
+getBundleInfos          function  src/lib/bundle-utils.ts:48:23               
+isRouteValid            function  src/lib/delivery-routing.ts:100:17          
+xlStatus                function  src/lib/exportExcel.ts:11:17                
+xlPayment               function  src/lib/exportExcel.ts:14:17                
+safe                    function  src/lib/formatUtils.ts:28:17                
+resolveZone             function  src/lib/geo/resolve-zone.ts:152:17          
+getDistricts            function  src/lib/geo/sanaa-boundaries.ts:77:17       
+invalidateCache         function  src/lib/geo/sanaa-boundaries.ts:82:17       
+isInsideSanaa           function  src/lib/location-validation.ts:18:17        
+sanaaCenter             function  src/lib/location-validation.ts:54:17        
+getAllowedSidebarLinks  function  src/lib/permissions.ts:44:17                
+safeNumber              function  src/lib/pricing-engine.ts:9:17              
+normalizeYemeniPhone    function  src/lib/validation.ts:14:17                 
+validateMinOrderAmount  function  src/lib/validation.ts:49:17                 
+upsertSetting           function  src/repositories/settingsRepository.ts:3:23 
+getSettings             function  src/repositories/settingsRepository.ts:16:23
+getSetting              function  src/repositories/settingsRepository.ts:29:23
+TopOfferSchema                    src/schemas/reports.ts:4:14                 
+DashboardMetricsSchema            src/schemas/reports.ts:30:14                
+DashboardReportSchema             src/schemas/reports.ts:39:14                
+SalesMetricsSchema                src/schemas/reports.ts:55:14                
+CustomerMetricsSchema             src/schemas/reports.ts:68:14                
+CustomerReportSchema              src/schemas/reports.ts:79:14                
+ProductMetricsSchema              src/schemas/reports.ts:90:14                
+ProductReportSchema               src/schemas/reports.ts:100:14               
+SummarySectionSchema              src/schemas/reports.ts:112:14               
+CompareReportSchema               src/schemas/reports.ts:119:14               
+OrderItemSchema                   src/validators/orderSchema.ts:3:14          
+OfferInputSchema                  src/validators/orderSchema.ts:12:14         
+CreateOrderSchema                 src/validators/orderSchema.ts:25:14         
+UpdateStatusSchema                src/validators/orderSchema.ts:39:14         
+CancelOrderSchema                 src/validators/orderSchema.ts:45:14         
+AdminUserSchema                   src/validators/orderSchema.ts:50:14         
+CategorySchema                    src/validators/orderSchema.ts:69:14         
+OfferSchema                       src/validators/orderSchema.ts:79:14         
+Unused exported types (32)
+OrderItemInput           interface  src/actions/orders.ts:81:18                
+OfferInput               interface  src/actions/orders.ts:90:18                
+SanaaDistrict            interface  src/lib/geo/sanaa-boundaries.ts:6:18       
+DeliveryRouteOptions     interface  src/lib/maps/getDeliveryRoute.ts:7:18      
+BundleItemData           interface  src/lib/offer-pricing.ts:1:18              
+PricingOffer             interface  src/lib/pricing-engine.ts:23:18            
+WhatsAppMessageOrder     interface  src/lib/whatsapp-message.ts:1:18           
+WhatsAppMessageCustomer  interface  src/lib/whatsapp-message.ts:8:18           
+WhatsAppMessageItem      interface  src/lib/whatsapp-message.ts:14:18          
+WhatsAppMessagePayment   interface  src/lib/whatsapp-message.ts:21:18          
+WhatsAppFinancials       interface  src/lib/whatsapp-message.ts:30:18          
+OrderChangePayload       type       src/realtime/OrderRealtimeProvider.tsx:7:13
+ItemFormData             type       src/repositories/menuRepository.ts:5:13    
+TopOffer                 type       src/schemas/reports.ts:10:13               
+DashboardMetrics         type       src/schemas/reports.ts:37:13               
+DashboardReport          type       src/schemas/reports.ts:52:13               
+SalesMetrics             type       src/schemas/reports.ts:65:13               
+CustomerMetrics          type       src/schemas/reports.ts:77:13               
+CustomerReport           type       src/schemas/reports.ts:87:13               
+ProductMetrics           type       src/schemas/reports.ts:98:13               
+ProductReport            type       src/schemas/reports.ts:109:13              
+SummarySection           type       src/schemas/reports.ts:117:13              
+CompareReport            type       src/schemas/reports.ts:129:13              
+BundleSubItem            interface  src/store/cartStore.ts:4:18                
+CartItem                 interface  src/store/cartStore.ts:14:18               
+CreateOrderInput         type       src/validators/orderSchema.ts:95:13        
+UpdateStatusInput        type       src/validators/orderSchema.ts:96:13        
+CancelOrderInput         type       src/validators/orderSchema.ts:97:13        
+AdminUserInput           type       src/validators/orderSchema.ts:98:13        
+ItemInput                type       src/validators/orderSchema.ts:99:13        
+CategoryInput            type       src/validators/orderSchema.ts:100:13       
+OfferInput               type       src/validators/orderSchema.ts:101:13       

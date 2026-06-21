@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import HomeClient from './HomeClient';
 
 export const metadata: Metadata = {
-  title: 'مطعم بيت المندي | أفضل مطعم مندي ومأكولات يمنية في صنعاء',
+  title: 'مطعم بيت المندي | بيت الجميع',
   description:
     'مطعم بيت المندي يقدم أشهى أطباق المندي والمظبي والمأكولات اليمنية الأصيلة مع خدمة توصيل سريعة داخل صنعاء. اطلب الآن عبر الموقع أو واتساب.',
   keywords: [
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     canonical: 'https://baitalmandi.vercel.app',
   },
   openGraph: {
-    title: 'مطعم بيت المندي | أفضل مطعم مندي في صنعاء',
+    title: 'مطعم بيت المندي | بيت الجميع',
     description:
       'أشهى أطباق المندي والمظبي والمأكولات اليمنية الأصيلة. خدمة توصيل سريعة لجميع أحياء صنعاء.',
     url: 'https://baitalmandi.vercel.app',
@@ -38,13 +38,13 @@ export const metadata: Metadata = {
         url: 'https://baitalmandi.vercel.app/logo.jpg',
         width: 1200,
         height: 630,
-        alt: 'مطعم بيت المندي - أصالة الطعم اليمني',
+        alt: 'مطعم بيت المندي | بيت الجميع',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'مطعم بيت المندي | أفضل مطعم مندي في صنعاء',
+    title: 'مطعم بيت المندي | بيت الجميع',
     description:
       'أشهى أطباق المندي والمظبي والمأكولات اليمنية الأصيلة. خدمة توصيل سريعة لجميع أحياء صنعاء.',
     images: ['https://baitalmandi.vercel.app/logo.jpg'],

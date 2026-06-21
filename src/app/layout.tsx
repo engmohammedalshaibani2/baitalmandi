@@ -13,7 +13,7 @@ const BASE_URL = 'https://baitalmandi.vercel.app';
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
   title: {
-    default: 'مطعم بيت المندي | أفضل مطعم مندي ومأكولات يمنية في صنعاء',
+    default: 'مطعم بيت المندي | بيت الجميع ',
     template: '%s | مطعم بيت المندي',
   },
   description:
